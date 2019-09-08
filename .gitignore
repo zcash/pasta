@@ -1,3 +1,12 @@
+verify-*
+expand2-*
+hex-*
+primes
+proof/
+
+*.swp
+*.save
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

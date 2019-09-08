@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 from errno import ENOENT, EEXIST
 from sortedcontainers import SortedSet
 
@@ -165,12 +166,12 @@ def verify_pass(V, needtofactor):
   writefile('expand2-p','= %s\n' % expand2(p))
   writefile('expand2-l','<br>= %s\n' % expand2(l))
   
-  writefile('hex-p',hex(p) + '\n')
-  writefile('hex-l',hex(l) + '\n')
-  writefile('hex-x0',hex(x0) + '\n')
-  writefile('hex-x1',hex(x1) + '\n')
-  writefile('hex-y0',hex(y0) + '\n')
-  writefile('hex-y1',hex(y1) + '\n')
+  writefile('hex-p',p.hex() + '\n')
+  writefile('hex-l',l.hex() + '\n')
+  writefile('hex-x0',x0.hex() + '\n')
+  writefile('hex-x1',x1.hex() + '\n')
+  writefile('hex-y0',y0.hex() + '\n')
+  writefile('hex-y1',y1.hex() + '\n')
 
   gcdlpis1 = gcd(l,p) == 1
   safetransfer &= requirement('verify-gcdlp1',gcdlpis1)
@@ -224,8 +225,10 @@ def verify_pass(V, needtofactor):
     writefile('verify-disc','<font size=1>%s</font><br>= <font size=1>%s</font><br>&#x2248; -2^%.1f\n' % (D,f,Dbits))
     safedisc &= requirement('verify-discisbig',D < -2^100)
 
-  pi4 = 0.78539816339744830961566084581987572105
-  rho = log(pi4*l)/log(4)
+  pin = 0.78539816339744830961566084581987572105
+  if D == -3:
+      pin /= 3.0
+  rho = log(pin*l)/log(4)
   writefile('verify-rho','%.1f\n' % rho)
   saferho &= requirement('verify-rhoabove100',rho.numerical_approx() >= 100)
 
@@ -251,7 +254,7 @@ def verify_pass(V, needtofactor):
     writefile('verify-twistrho','Unverified\n')
     safetwist = False
   else:
-    writefile('hex-twistl',hex(twistl) + '\n')
+    writefile('hex-twistl',twistl.hex() + '\n')
     writefile('expand2-twistl','<br>= %s\n' % expand2(twistl))
     f = factor(1)
     d = (p+1+t)/twistl
@@ -281,7 +284,7 @@ def verify_pass(V, needtofactor):
         safetwist &= requirement('verify-twistmovsafe',(twistl-1)/d <= 100)
         writefile('verify-twistembeddingdegree',"<font size=1>%s</font><br>= (l'-1)/%s\n" % (d,(twistl-1)/d))
 
-    rho = log(pi4*twistl)/log(4)
+    rho = log(pin*twistl)/log(4)
     writefile('verify-twistrho','%.1f\n' % rho)
     safetwist &= requirement('verify-twistrhoabove100',rho.numerical_approx() >= 100)
 
@@ -297,11 +300,11 @@ def verify_pass(V, needtofactor):
         if d2 % v == 0: d2 //= v
         # best case for attack: cyclic; each power is usable
 	# also assume that kangaroo is as efficient as rho
-        if v + sqrt(pi4*joint/v) < sqrt(pi4*joint):
+        if v + sqrt(pin*joint/v) < sqrt(pin*joint):
 	  precomp += v
 	  joint /= v
         
-    rho = log(precomp + sqrt(pi4 * joint))/log(2)
+    rho = log(precomp + sqrt(pin * joint))/log(2)
     writefile('verify-jointrho','%.1f\n' % rho)
     safetwist &= requirement('verify-jointrhoabove100',rho.numerical_approx() >= 100)
 
@@ -399,6 +402,7 @@ def verify_pass(V, needtofactor):
     writefile('verify-ltimesbase1',str(l * E([x1,y1])) + '\n')
     writefile('verify-cofactorbase01',str(((p+1-t)//l) * E([x0,y0]) == E([x1,y1])) + '\n')
   except:
+    traceback.print_exc()
     writefile('verify-numorder2','Unverified\n')
     writefile('verify-numorder4','Unverified\n')
     writefile('verify-ltimesbase1','Unverified\n')
