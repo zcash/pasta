@@ -1,28 +1,35 @@
-Jubjub supporting evidence
---------------------------
+Tweedledum/Tweedledee supporting evidence
+-----------------------------------------
 
-This repository contains supporting evidence that the twisted Edwards curve
--x^2 + y^2 = 1 - (10240/10241).x^2.y^2 of rational points over
-GF(52435875175126190479447740508185965837690552500527637822603658699938581184513),
-[also called "Jubjub"](https://z.cash/technology/jubjub.html),
-satisfies the [SafeCurves criteria](https://safecurves.cr.yp.to/index.html).
+This repository contains supporting evidence that the amicable pair of
+prime-order curves:
 
-The script ``verify.sage`` is based on
-[this script from the SafeCurves site](https://safecurves.cr.yp.to/verify.html),
-modified
+* Ep : y^2 = x^3 + 5 over GF(p) of order q, called Tweedledum;
+* Eq : y^2 = x^3 + 5 over GF(q) of order p, called Tweedledee;
 
-* to support twisted Edwards curves;
-* to generate a file 'primes' containing the primes needed for primality proofs,
-  if it is not already present;
-* to change the directory in which Pocklington proof files are generated
-  (``proof/`` rather than ``../../../proof``), and to create that directory
-  if it does not exist.
+with
+
+* p = 57896044618658097711785492504343953925989756877607163761872965584918954377217
+* q = 57896044618658097711785492504343953925989756877607147991657089165100807356417
+
+satisfy *some* of the [SafeCurves criteria](https://safecurves.cr.yp.to/index.html).
+
+The criteria that are *not* satisfied are, in summary:
+
+* large CM discriminant (both curves have CM discriminant 3, as a consequence of how
+  they were constructed);
+* completeness (complete formulae are possible, but not according to the Safe curves
+  criterion);
+* ladder support (not possible for prime-order curves);
+* Elligator 2 support (indistinguishability is possible using
+  [Elligator Squared](https://ifca.ai/pub/fc14/paper_25.pdf), but not using Elligator 2);
+* twist security;
+* rigidity.
 
 Prerequisites:
 
 * apt-get install sagemath
 * pip install sortedcontainers
 
-Run ``sage verify.sage .``, or ``./run.sh`` to also print out the results.
-
-Note that the "rigidity" criterion cannot be checked automatically.
+Run ``sage verify.sage Ep`` and ``sage verify.sage Eq``; or ``./run.sh`` to run both
+and also print out the results.
