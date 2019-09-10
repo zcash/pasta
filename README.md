@@ -26,6 +26,9 @@ The criteria that are *not* satisfied are, in summary:
 * twist security;
 * rigidity.
 
+Tweedledum/Tweedledee is one of the cycles output by ``sage amicable.sage --nearpowerof2 255 32``
+(the first one with constant 5 for both curves and gcd(p-1, 5) = 1, gcd(q-1, 5) = 1).
+
 Prerequisites:
 
 * apt-get install sagemath
