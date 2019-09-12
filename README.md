@@ -4,8 +4,8 @@ Tweedledum/Tweedledee supporting evidence
 This repository contains supporting evidence that the amicable pair of
 prime-order curves:
 
-* Ep : y^2 = x^3 + 5 over GF(p) of order q, called Tweedledum;
-* Eq : y^2 = x^3 + 5 over GF(q) of order p, called Tweedledee;
+* Ep : y^2 = x^3 + 5 over GF(p) of order q, called (provisional) Tweedledum;
+* Eq : y^2 = x^3 + 5 over GF(q) of order p, called (provisional) Tweedledee;
 
 with
 
@@ -26,8 +26,12 @@ The criteria that are *not* satisfied are, in summary:
 * twist security;
 * rigidity.
 
-Tweedledum/Tweedledee is one of the cycles output by ``sage amicable.sage --nearpowerof2 255 32``
-(the first one with constant 5 for both curves and gcd(p-1, 5) = 1, gcd(q-1, 5) = 1).
+(Provisional) Tweedledum/Tweedledee is one of the cycles output by
+``sage amicable.sage --nearpowerof2 255 32`` (the first one with constant 5 for both curves
+and gcd(p-1, 5) = 1, gcd(q-1, 5) = 1).
+
+**Which cycle we call Tweedledum/Tweedledee is subject to change as we make further
+optimizations to Halo.**
 
 Prerequisites:
 
