@@ -5,6 +5,7 @@ from traceback import print_exc
 from math import ceil
 from itertools import combinations
 
+#PROCESSES = 1
 PROCESSES = None  # auto-detect
 
 # Let Ep/Fp : y^2 = x^3 + bp
@@ -56,38 +57,38 @@ def low_hamming_order(L, twoadicity, wid, processes):
                 for tc in combinations(xrange(trailing_zeros, tlen), tw):
                     t = tbase + sum([1 << i for i in tc]) + 1
                     assert(((t-1)/2) % (1<<twoadicity) == 0)
-                    if t % 3 != 1:
+                    if t % 6 != 1:
                         continue
                     p4 = 3*V^2 + t^2
                     assert(p4 % 4 == 0)
                     p = p4//4
                     assert(p % (1<<twoadicity) == 1)
-                    if p % 3 == 1 and is_prime(p):
-                        yield p
+                    if p % 6 == 1 and is_pseudoprime(p):
+                        yield (p, t, V)
 
 def near_powerof2_order(L, twoadicity, wid, processes):
     trailing_zeros = twoadicity+1
-    Vbase = isqrt((1<<(L+2))//3) >> trailing_zeros
+    Vbase = isqrt((1<<(L+1))//3) >> trailing_zeros
     for Voffset in symmetric_range(10000, base=wid, step=processes):
         V = ((Vbase + Voffset) << trailing_zeros) + 1
         assert(((V-1)/2) % (1 << twoadicity) == 0)
-        tmp = (1<<(L+2)) - 3*V^2
+        tmp = (1<<(L+1)) - 3*V^2
         if tmp < 0: continue
         tbase = isqrt(tmp) >> trailing_zeros
         for toffset in symmetric_range(10000):
             t = ((tbase + toffset) << trailing_zeros) + 1
             assert(((t-1)/2) % (1<<twoadicity) == 0)
-            if t % 3 != 1:
+            if t % 6 != 1:
                 continue
             p4 = 3*V^2 + t^2
             assert(p4 % 4 == 0)
             p = p4//4
             assert(p % (1<<twoadicity) == 1)
-            if p % 3 == 1 and is_prime(p):
-                yield p
+            if p > 1<<(L-1) and p % 6 == 1 and is_pseudoprime(p):
+                yield (p, t, V)
 
 def find_nonsquare_noncube(p):
-    for g_int in xrange(2, 100):
+    for g_int in xrange(2, 1000):
         g = Mod(g_int, p)
         if g^((p-1)//3) != 1 and g^((p-1)//2) != 1:
             return g
@@ -99,28 +100,27 @@ def symmetric_range(n, base=0, step=1):
         yield i+1
 
 def find_nice_curves(strategy, L, twoadicity, stretch, wid, processes):
-    for p in strategy(L, max(0, twoadicity-stretch), wid, processes):
+    for (p, t, V) in strategy(L, max(0, twoadicity-stretch), wid, processes):
         sys.stdout.write('.')
         sys.stdout.flush()
-        if p % (1<<twoadicity) != 1: continue
-        gp = find_nonsquare_noncube(p)
-        if gp is None: continue
 
-        for i in xrange(6):
-            bp = gp^i
-            Ep = EllipticCurve(GF(p), [0, bp])
-            q = Ep.count_points()
-            if q % (1<<twoadicity) == 1 and q % 3 == 1 and is_prime(q):
+        for (q, qdesc) in ((p + 1 - t,          "p + 1 - t"),
+                           (p + 1 + (t-3*V)//2, "p + 1 + (t-3*V)/2")):
+            if q > 1<<(L-1) and q % 6 == 1 and q % (1<<twoadicity) == 1 and is_prime(q) and is_prime(p):
                 bp = find_coefficient(p, q)
-                if bp is not None:
-                    bq = find_coefficient(q, p)
-                    if bq is not None:
-                        gq = find_nonsquare_noncube(q)
-                        aq = gq^((q-1)//3)
-                        assert(aq^3 == Mod(1, q))
-                        ap = gp^((p-1)//3)
-                        assert(ap^3 == Mod(1, p))
-                        yield (p, q, bp, bq, ap, aq)
+                if bp == None: continue
+                bq = find_coefficient(q, p)
+                if bq == None: continue
+                gp = find_nonsquare_noncube(p)
+                if gp == None: continue
+                gq = find_nonsquare_noncube(q)
+                if gq == None: continue
+
+                aq = gq**((q-1)//3)
+                assert(aq**3 == Mod(1, q))
+                ap = gp**((p-1)//3)
+                assert(ap**3 == Mod(1, p))
+                yield (p, q, bp, bq, ap, aq, qdesc)
 
 def find_coefficient(p, q):
     for b in xrange(1, 10000):
@@ -182,10 +182,11 @@ def worker(*args):
         print_exc()
 
 def real_worker(*args):
-    for (p, q, bp, bq, ap, aq) in find_nice_curves(*args):
+    for (p, q, bp, bq, ap, aq, qdesc) in find_nice_curves(*args):
         output  = "\n"
         output += "p   = %s\n" % format_weight(p)
         output += "q   = %s\n" % format_weight(q)
+        output += "    = %s\n" % qdesc
         output += "α_p = %s (mod p)\n" % format_weight(int(ap), detail=False)
         output += "α_q = %s (mod q)\n" % format_weight(int(aq), detail=False)
 
