@@ -16,6 +16,12 @@ PROCESSES = None  # auto-detect
 DEFAULT_TWOADICITY = 21
 DEFAULT_STRETCH = 0
 
+COEFFICIENT_RANGE = (5,)
+#COEFFICIENT_RANGE = xrange(1, 10000)
+
+ACCEPTABLE_PRIMES = (5,)
+#ACCEPTABLE_PRIMES = Primes()
+
 # <https://eprint.iacr.org/2011/465.pdf>
 # It is well known that if g is neither a square nor a cube in Fp, then all
 # possible group orders an elliptic curve E : y^2 = x^3 + b can have over Fp
@@ -123,14 +129,14 @@ def find_nice_curves(strategy, L, twoadicity, stretch, wid, processes):
                 yield (p, q, bp, bq, ap, aq, qdesc)
 
 def find_coefficient(p, q):
-    for b in xrange(1, 10000):
+    for b in COEFFICIENT_RANGE:
         E = EllipticCurve(GF(p), [0, b])
         if E.count_points() == q:
             return b
     return None
 
 def find_lowest_prime(p):
-    for r in Primes():
+    for r in ACCEPTABLE_PRIMES:
         if gcd(p-1, r) == 1:
             return r
 
