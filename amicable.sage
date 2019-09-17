@@ -25,18 +25,18 @@ REQUIRE_HALFZERO = True
 
 
 # <https://cryptojedi.org/papers/pfcpo.pdf> section 2:
-# [...] the order of a curve satisfying the norm equation 3V^2 = 4p - t^2 has one
-# of the six forms {p+1 +/- t, p+1 +/- (t +/- 3V)/2} [IEEE Std 1363-2000, section
+# [...] the order of a curve satisfying the norm equation 3V^2 = 4p - T^2 has one
+# of the six forms {p+1 +/- T, p+1 +/- (T +/- 3V)/2} [IEEE Std 1363-2000, section
 # A.14.2.3, item 6].
 #
-# We choose 4p = 3V^2 + t^2, where (V-1)/2 and (t-1)/2 are both multiples of 2^twoadicity.
+# We choose 4p = 3V^2 + T^2, where (V-1)/2 and (T-1)/2 are both multiples of 2^twoadicity.
 #
-# Then 4p = (3(V-1)^2 + 6(V-1) + 3) + ((t-1)^2 + 2(t-1) + 1)
-#         = 3(V-1)^2 + 6(V-1) + (t-1)^2 + 2(t-1) + 4
-#       p = 3((V-1)/2)^2 + 3(V-1)/2 + ((t-1)/2)^2 + (t-1)/2 + 1
+# Then 4p = (3(V-1)^2 + 6(V-1) + 3) + ((T-1)^2 + 2(T-1) + 1)
+#         = 3(V-1)^2 + 6(V-1) + (T-1)^2 + 2(T-1) + 4
+#       p = 3((V-1)/2)^2 + 3(V-1)/2 + ((T-1)/2)^2 + (T-1)/2 + 1
 #
 # So p-1 will be a multiple of 2^twoadicity, and so will q-1 for q in
-# { p + 1 - t, p + 1 + (t-3V)/2 }.
+# { p + 1 - T, p + 1 + (T-3V)/2 }.
 #
 # We'd also like both p and q to be 1 (mod 6), so that we have efficient endomorphisms
 # on both curves.
@@ -44,25 +44,25 @@ REQUIRE_HALFZERO = True
 def low_hamming_order(L, twoadicity, wid, processes):
     Vlen = (L-1)//2 + 1
     Vbase = 1 << Vlen
-    tlen = (L-1)//4
-    tbase = 1 << tlen
+    Tlen = (L-1)//4
+    Tbase = 1 << Tlen
     trailing_zeros = twoadicity+1
-    for w in xrange(wid, tlen-trailing_zeros, processes):
+    for w in xrange(wid, Tlen-trailing_zeros, processes):
         for Vc in combinations(xrange(trailing_zeros, Vlen), w):
             V = Vbase + sum([1 << i for i in Vc]) + 1
             assert(((V-1)/2) % (1<<twoadicity) == 0)
-            for tw in xrange(1, w+1):
-                for tc in combinations(xrange(trailing_zeros, tlen), tw):
-                    t = tbase + sum([1 << i for i in tc]) + 1
-                    assert(((t-1)/2) % (1<<twoadicity) == 0)
-                    if t % 6 != 1:
+            for Tw in xrange(1, w+1):
+                for Tc in combinations(xrange(trailing_zeros, tlen), Tw):
+                    T = Tbase + sum([1 << i for i in Tc]) + 1
+                    assert(((T-1)/2) % (1<<twoadicity) == 0)
+                    if T % 6 != 1:
                         continue
-                    p4 = 3*V^2 + t^2
+                    p4 = 3*V^2 + T^2
                     assert(p4 % 4 == 0)
                     p = p4//4
                     assert(p % (1<<twoadicity) == 1)
                     if p % 6 == 1 and is_pseudoprime(p):
-                        yield (p, t, V)
+                        yield (p, T, V)
 
 
 def near_powerof2_order(L, twoadicity, wid, processes):
@@ -73,13 +73,13 @@ def near_powerof2_order(L, twoadicity, wid, processes):
         assert(((V-1)/2) % (1 << twoadicity) == 0)
         tmp = (1<<(L+1)) - 3*V^2
         if tmp < 0: continue
-        tbase = isqrt(tmp) >> trailing_zeros
-        for toffset in symmetric_range(100000):
-            t = ((tbase + toffset) << trailing_zeros) + 1
-            assert(((t-1)/2) % (1<<twoadicity) == 0)
-            if t % 6 != 1:
+        Tbase = isqrt(tmp) >> trailing_zeros
+        for Toffset in symmetric_range(100000):
+            T = ((Tbase + Toffset) << trailing_zeros) + 1
+            assert(((T-1)/2) % (1<<twoadicity) == 0)
+            if T % 6 != 1:
                 continue
-            p4 = 3*V^2 + t^2
+            p4 = 3*V^2 + T^2
             assert(p4 % 4 == 0)
             p = p4//4
             assert(p % (1<<twoadicity) == 1)
@@ -87,7 +87,7 @@ def near_powerof2_order(L, twoadicity, wid, processes):
                 continue
 
             if p > 1<<(L-1) and p % 6 == 1 and is_pseudoprime(p):
-                yield (p, t, V)
+                yield (p, T, V)
 
 def symmetric_range(n, base=0, step=1):
     for i in xrange(base, n, step):
@@ -95,12 +95,12 @@ def symmetric_range(n, base=0, step=1):
         yield i+1
 
 def find_nice_curves(strategy, L, twoadicity, stretch, wid, processes):
-    for (p, t, V) in strategy(L, max(0, twoadicity-stretch), wid, processes):
+    for (p, T, V) in strategy(L, max(0, twoadicity-stretch), wid, processes):
         sys.stdout.write('.')
         sys.stdout.flush()
 
-        for (q, qdesc) in ((p + 1 - t,          "p + 1 - t"),
-                           (p + 1 + (t-3*V)//2, "p + 1 + (t-3*V)/2")):
+        for (q, qdesc) in ((p + 1 - T,          "p + 1 - T"),
+                           (p + 1 + (T-3*V)//2, "p + 1 + (T-3*V)/2")):
             if REQUIRE_HALFZERO and q>>(L//2) != 1<<(L - 1 - L//2):
                 continue
 
