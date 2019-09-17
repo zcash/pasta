@@ -9,8 +9,8 @@ prime-order curves:
 
 with
 
-* p = 2^254 + 11429413694214642624661040171709366273
-* q = 2^254 + 11429413694209135470422256387130130433
+* p = 2^254 + 4707489545178046908921067385359695873
+* q = 2^254 + 4707489544292117082687961190295928833
 
 satisfy *some* of the [SafeCurves criteria](https://safecurves.cr.yp.to/index.html).
 
@@ -22,14 +22,18 @@ The criteria that are *not* satisfied are, in summary:
   criterion);
 * ladder support (not possible for prime-order curves);
 * Elligator 2 support (indistinguishability is possible using
-  [Elligator Squared](https://ifca.ai/pub/fc14/paper_25.pdf), but not using Elligator 2);
-* twist security.
+  [Elligator Squared](https://ifca.ai/pub/fc14/paper_25.pdf), but not using Elligator 2).
 
 (Provisional) Tweedledum/Tweedledee is the first cycle output by
-``sage amicable.sage --nearpowerof2 255 30``.
+``sage amicable.sage --sequential --nearpowerof2 255 32``.
+
+(The `--sequential` option makes the output completely deterministic and so resolves
+ambiguity about which result is "first". For exploratory searches it is faster not to
+use `--sequential`.)
 
 **Which cycle we call Tweedledum/Tweedledee is subject to change as we make further
-optimizations to Halo.**
+optimizations and security enhancements to Halo, and has already changed several times
+from the initial draft of the paper.**
 
 Prerequisites:
 
