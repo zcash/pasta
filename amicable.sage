@@ -118,13 +118,13 @@ def find_nice_curves(strategy, L, twoadicity, stretch, wid, processes):
                 primq = (Mod(bq, q).multiplicative_order() == q-1)
                 if REQUIRE_PRIMITIVE and not primq: continue
 
-                twsecp = twist_security(p, q)
+                (twsecp, twembedp) = twist_security(p, q)
                 if twsecp < TWIST_SECURITY: continue
-                twsecq = twist_security(q, p)
+                (twsecq, twembedq) = twist_security(q, p)
                 if twsecq < TWIST_SECURITY: continue
 
-                secp = curve_security(order=q)
-                secq = curve_security(order=p)
+                (secp, embedp) = curve_security(p, q)
+                (secq, embedq) = curve_security(q, p)
 
                 zetap = GF(p).zeta(3)
                 zetap = min(zetap, zetap^2)
@@ -141,10 +141,10 @@ def find_nice_curves(strategy, L, twoadicity, stretch, wid, processes):
                 Q = Eq.gens()[0]
                 assert(endo(Eq, zetaq, Q) == int(zetap)*Q)
 
-                embeddivp = embedding_divisor(p, q)
-                embeddivq = embedding_divisor(q, p)
-                twembeddivp = twist_embedding_divisor(p, q)
-                twembeddivq = twist_embedding_divisor(q, p)
+                embeddivp = (q-1)/embedp
+                embeddivq = (p-1)/embedq
+                twembeddivp = (2*p + 1 - q)/twembedp
+                twembeddivq = (2*q + 1 - p)/twembedq
 
                 yield (p, q, bp, bq, zetap, zetaq, qdesc, primp, primq, secp, secq, twsecp, twsecq,
                        embeddivp, embeddivq, twembeddivp, twembeddivq)
@@ -167,32 +167,29 @@ def find_lowest_prime(p):
 
 pi_12 = (pi/12).numerical_approx()
 
-def curve_security(order):
+def curve_security(p, q):
     sys.stdout.write('!')
     sys.stdout.flush()
-    r = factor(order)[-1][0]
-    return log(pi_12 * r, 4)
+    r = factor(q)[-1][0]
+    return (log(pi_12 * r, 4), embedding_degree(p, r))
 
 def twist_security(p, q):
-    return curve_security(2*(p+1) - q)
+    return curve_security(p, 2*(p+1) - q)
 
-def embedding_divisor(p, q):
+def embedding_degree(p, r):
     sys.stdout.write('#')
     sys.stdout.flush()
-    assert(gcd(p, q) == 1)
-    Z_q = Integers(q)
+    assert(gcd(p, r) == 1)
+    Z_q = Integers(r)
     u = Z_q(p)
-    d = q-1
+    d = r-1
     V = factor(d)
     for (v, k) in V:
         while d % v == 0:
             if u^(d/v) != 1: break
             d /= v
 
-    return (q-1)/d
-
-def twist_embedding_divisor(p, q):
-    return embedding_divisor(p, 2*(p+1) - q)
+    return d
 
 
 def format_weight(x, detail=True):
