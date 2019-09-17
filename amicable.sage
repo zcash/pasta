@@ -5,9 +5,6 @@ from traceback import print_exc
 from math import ceil
 from itertools import combinations
 
-#PROCESSES = 1
-PROCESSES = None  # auto-detect
-
 # Let Ep/Fp : y^2 = x^3 + bp
 # Let Eq/Fq : y^2 = x^3 + bq
 
@@ -153,18 +150,19 @@ def format_weight(x, detail=True):
 
 
 def main():
-    strategy = near_powerof2_order if "--nearpowerof2" in sys.argv[1:] else low_hamming_order
-    args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+    args = sys.argv[1:]
+    strategy = near_powerof2_order if "--nearpowerof2" in args else low_hamming_order
+    processes = 1 if "--sequential" in args else cpu_count()
+    args = [arg for arg in args if not arg.startswith("--")]
 
     if len(args) < 1:
-        print("Usage: sage amicable.sage [--nearpowerof2] <min-bitlength> [<min-2adicity> [<stretch]]\n")
+        print("Usage: sage amicable.sage [--sequential] [--nearpowerof2] <min-bitlength> [<min-2adicity> [<stretch]]\n")
         return
 
     L          = int(args[0])
     twoadicity = int(args[1]) if len(args) > 1 else DEFAULT_TWOADICITY
     stretch    = int(args[2]) if len(args) > 2 else DEFAULT_STRETCH
 
-    processes = PROCESSES or cpu_count()
     print("Using %d processes." % (processes,))
     pool = Pool(processes=processes)
 
