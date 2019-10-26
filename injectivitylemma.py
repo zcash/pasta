@@ -9,7 +9,8 @@ def gamma_delta():
     yield ( 0,  1)
 
 def sums_mod4(gd):
-    return (sum([gd[j][0] * (2**j) for j in range(k)]) % 4, sum([gd[j][1] * (2**j) for j in range(k)]) % 4)
+    return ((2**(k+1) + sum([gd[j][0] * (2**j) for j in range(k)])) % 4,
+            (2**(k+1) + sum([gd[j][1] * (2**j) for j in range(k)])) % 4)
 
 for k in (1, 2):
     M_k = [list(s) for s in product(gamma_delta(), repeat=k)]
