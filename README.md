@@ -16,8 +16,8 @@ satisfy *some* of the [SafeCurves criteria](https://safecurves.cr.yp.to/index.ht
 
 The criteria that are *not* satisfied are, in summary:
 
-* large CM discriminant (both curves have CM discriminant 3, as a consequence of how
-  they were constructed);
+* large-magnitude CM discriminant (both curves have CM discriminant of absolute value 3,
+  as a consequence of how they were constructed);
 * completeness (complete formulae are possible, but not according to the Safe curves
   criterion);
 * ladder support (not possible for prime-order curves);
