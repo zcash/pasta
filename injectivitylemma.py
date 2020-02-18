@@ -1,16 +1,19 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 from itertools import product
+from collections import namedtuple
+
+cd_pair = namedtuple('cd_pair', ['c', 'd'])
 
 def c_d():
-    yield (-1,  0)
-    yield ( 1,  0)
-    yield ( 0, -1)
-    yield ( 0,  1)
+    yield cd_pair(-1,  0)
+    yield cd_pair( 1,  0)
+    yield cd_pair( 0, -1)
+    yield cd_pair( 0,  1)
 
 def sums_mod4(cd):
-    return ((2**(k+1) + sum([cd[j][0] * (2**j) for j in range(k)])) % 4,
-            (2**(k+1) + sum([cd[j][1] * (2**j) for j in range(k)])) % 4)
+    return ((2**(k+1) + sum([cd[j].c * (2**j) for j in range(k)])) % 4,
+            (2**(k+1) + sum([cd[j].d * (2**j) for j in range(k)])) % 4)
 
 for k in (1, 2):
     M_k = [list(s) for s in product(c_d(), repeat=k)]
