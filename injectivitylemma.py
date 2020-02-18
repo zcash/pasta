@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+# This checks the cases k = 1 and k = 2 needed to complete the proof of the
+# injectivity lemma in Appendix C of <https://eprint.iacr.org/2019/1021>.
+
 from itertools import product
 from collections import namedtuple
 
