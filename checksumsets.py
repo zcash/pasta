@@ -59,7 +59,7 @@ BRUTEFORCE_THRESHOLD = 100000
 
 def D(q, zeta, mm):
     if DEBUG: print("(q, zeta, mm) =", (q, zeta, mm))
-    Dcheck = bruteforce_D(q, zeta, min(mm, BRUTEFORCE_THRESHOLD))
+    Dcheck = [] if BRUTEFORCE_THRESHOLD == 0 else bruteforce_D(q, zeta, min(mm, BRUTEFORCE_THRESHOLD))
 
     (u, m) = (0, 1)  # (u + am) : a ∈ Nat is the current arithmetic progression
     n = q            # the previous min-distance
