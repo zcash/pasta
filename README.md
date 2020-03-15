@@ -31,7 +31,7 @@ Tweedledum/Tweedledee is the first cycle output by
 ambiguity about which result is "first". For exploratory searches it is faster not to
 use `--sequential`.)
 
-**The cycle we call Tweedledum/Tweedledee has changed from the initial draft of the paper.**
+**The cycle we call Tweedledum/Tweedledee has changed from the initial (September 2019) draft of the paper.**
 
 Prerequisites:
 
