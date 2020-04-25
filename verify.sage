@@ -202,7 +202,7 @@ def verify_pass(V, needtofactor):
     for v in V:
       while d % v == 0:
         d //= v
-	f *= factor(v)
+        f *= factor(v)
     writefile('verify-cofactor','%s\n' % f)
   else:
     writefile('verify-trace','Unverified\n')
@@ -262,7 +262,7 @@ def verify_pass(V, needtofactor):
     for v in V:
       while d % v == 0:
         d //= v
-	f *= factor(v)
+        f *= factor(v)
     writefile('verify-twistcofactor','%s\n' % f)
     gcdtwistlpis1 = gcd(twistl,p) == 1
     safetwist &= requirement('verify-gcdtwistlp1',gcdtwistlpis1)
@@ -299,10 +299,10 @@ def verify_pass(V, needtofactor):
         if d1 % v == 0: d1 //= v
         if d2 % v == 0: d2 //= v
         # best case for attack: cyclic; each power is usable
-	# also assume that kangaroo is as efficient as rho
+        # also assume that kangaroo is as efficient as rho
         if v + sqrt(pin*joint/v) < sqrt(pin*joint):
-	  precomp += v
-	  joint /= v
+          precomp += v
+          joint /= v
         
     rho = log(precomp + sqrt(pin * joint))/log(2)
     writefile('verify-jointrho','%.1f\n' % rho)
