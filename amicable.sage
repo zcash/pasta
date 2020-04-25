@@ -5,6 +5,8 @@ from traceback import print_exc
 from math import ceil
 from itertools import combinations
 
+if sys.version_info[0] == 2: range = xrange
+
 # Let Ep/Fp : y^2 = x^3 + bp
 # Let Eq/Fq : y^2 = x^3 + bq
 
@@ -14,7 +16,7 @@ DEFAULT_TWOADICITY = 32
 DEFAULT_STRETCH = 0
 
 COEFFICIENT_RANGE = (5,)
-#COEFFICIENT_RANGE = xrange(1, 10000)
+#COEFFICIENT_RANGE = range(1, 10000)
 
 ACCEPTABLE_PRIMES = (5,)
 #ACCEPTABLE_PRIMES = Primes()
@@ -47,12 +49,12 @@ def low_hamming_order(L, twoadicity, wid, processes):
     Tlen = (L-1)//4
     Tbase = 1 << Tlen
     trailing_zeros = twoadicity+1
-    for w in xrange(wid, Tlen-trailing_zeros, processes):
-        for Vc in combinations(xrange(trailing_zeros, Vlen), w):
+    for w in range(wid, Tlen-trailing_zeros, processes):
+        for Vc in combinations(range(trailing_zeros, Vlen), w):
             V = Vbase + sum([1 << i for i in Vc]) + 1
             assert(((V-1)/2) % (1<<twoadicity) == 0)
-            for Tw in xrange(1, w+1):
-                for Tc in combinations(xrange(trailing_zeros, tlen), Tw):
+            for Tw in range(1, w+1):
+                for Tc in combinations(range(trailing_zeros, tlen), Tw):
                     T = Tbase + sum([1 << i for i in Tc]) + 1
                     assert(((T-1)/2) % (1<<twoadicity) == 0)
                     if T % 6 != 1:
@@ -90,7 +92,7 @@ def near_powerof2_order(L, twoadicity, wid, processes):
                 yield (p, T, V)
 
 def symmetric_range(n, base=0, step=1):
-    for i in xrange(base, n, step):
+    for i in range(base, n, step):
         yield -i
         yield i+1
 
@@ -222,7 +224,7 @@ def main():
     pool = Pool(processes=processes)
 
     try:
-        for wid in xrange(processes):
+        for wid in range(processes):
             pool.apply_async(worker, (strategy, L, twoadicity, stretch, wid, processes))
 
         while True:
