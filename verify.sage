@@ -53,7 +53,7 @@ def verify():
 
   try:
     s = set(map(Integer, readfile('primes').split()))
-  except IOError, e:
+  except IOError as e:
     if e.errno != ENOENT: raise
     s = set()
 
