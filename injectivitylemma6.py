@@ -13,11 +13,11 @@
 #                           { (0, 2r_i - 1, 0), if s_i = 1
 #                           { (2r_i - 1, 0, 0), if s_i = 2
 #     (a, b, c) := (2a + d_i, 2b + e_i, 2c + f_i)
-#     Output [a.ζ^2 + b.ζ + c] P.
+# Output [a.ζ^2 + b.ζ + c] P.
 #
 # For each i ∈ [0, λ), the mapping (r_i, s_i) ↦ (d_i, e_i, f_i) is injective,
-# and exactly one of d_i, e_i, f_i ∈ {-1, 0, +1} is 0.
-# Let M_k = {(d, e, f : {-1, 0, +1}^k) for all i, exactly one of d_i, e_i, f_i is 0}.
+# and exactly one of d_i, e_i, f_i ∈ {-1, 0, +1} is nonzero.
+# Let M_k = {(d, e, f : {-1, 0, +1}^k) for all i, exactly one of d_i, e_i, f_i is nonzero}.
 # So (r, s) ↦ (d, e, f) : M_λ is also injective.
 #
 # Lemma: For k ≥ 0, (d, e, f) ∈ M_k ↦ (∑_{j ∈ [0, k-1)} d_j 2^j,
