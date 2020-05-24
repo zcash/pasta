@@ -259,7 +259,7 @@ def real_worker(*args):
         output += "gcd(q-1, %d) = 1\n" % find_lowest_prime(q)
 
         output += "%d is %ssquare and %sprimitive in Fp\n" % (bp, "" if Mod(bp, p).is_square() else "non", "" if primp else "non")
-        output += "%d is %ssquare and %sprimitive in Fq\n" % (bq, "" if Mod(bp, q).is_square() else "non", "" if primq else "non")
+        output += "%d is %ssquare and %sprimitive in Fq\n" % (bq, "" if Mod(bq, q).is_square() else "non", "" if primq else "non")
 
         output += "Ep security = %.1f, embedding degree = (q-1)/%d\n" % (secp, embeddivp)
         output += "Eq security = %.1f, embedding degree = (p-1)/%d\n" % (secq, embeddivq)
