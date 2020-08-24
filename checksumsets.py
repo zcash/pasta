@@ -69,10 +69,10 @@ DEBUG = False
 
 @dataclass
 class State:
-    u: Optional[int]
-    m: Optional[int]
-    n: Optional[int]
-    d: Optional[int]
+    u: int
+    m: int
+    n: int
+    d: int
 
 
 def D(q, zeta, mm, animator=None):
