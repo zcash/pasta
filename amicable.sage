@@ -1,4 +1,6 @@
+#!/usr/bin/env sage
 # -*- coding: utf-8 -*-
+
 import sys
 from multiprocessing import Pool, cpu_count
 from traceback import print_exc
