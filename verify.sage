@@ -1,3 +1,5 @@
+#!/usr/bin/env sage
+
 import os
 import sys
 import traceback
