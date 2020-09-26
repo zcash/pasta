@@ -20,10 +20,12 @@ DEFAULT_STRETCH = 0
 COEFFICIENT_RANGE = (5,)
 #COEFFICIENT_RANGE = range(1, 100)
 
-ACCEPTABLE_PRIMES = (5,)
-#ACCEPTABLE_PRIMES = Primes()
+GCD_PRIMES = (5, 7, 11, 13, 17)
 
-TWIST_SECURITY = 120
+ISOGENY_DEGREE_PRIMES = 40
+ISOGENY_DEGREE_MAX = list(primes(ISOGENY_DEGREE_PRIMES))[-1]
+
+DEFAULT_TWIST_SECURITY = 120
 REQUIRE_PRIMITIVE = True
 REQUIRE_HALFZERO = True
 
@@ -98,7 +100,7 @@ def symmetric_range(n, base=0, step=1):
         yield -i
         yield i+1
 
-def find_nice_curves(strategy, L, twoadicity, stretch, wid, processes):
+def find_nice_curves(strategy, L, twoadicity, stretch, isogenies, twistsec, wid, processes):
     for (p, T, V) in strategy(L, max(0, twoadicity-stretch), wid, processes):
         if p % (1<<twoadicity) != 1:
             continue
@@ -114,7 +116,7 @@ def find_nice_curves(strategy, L, twoadicity, stretch, wid, processes):
             if q not in (p, p+1, p-1) and q > 1<<(L-1) and q % 6 == 1 and q % (1<<twoadicity) == 1 and is_prime(q) and is_prime(p):
                 (Ep, bp) = find_curve(p, q)
                 if bp == None: continue
-                (Eq, bq) = find_curve(q, p)
+                (Eq, bq) = find_curve(q, p, (bp,))
                 if bq == None: continue
 
                 sys.stdout.write('*')
@@ -126,9 +128,9 @@ def find_nice_curves(strategy, L, twoadicity, stretch, wid, processes):
                 if REQUIRE_PRIMITIVE and not primq: continue
 
                 (twsecp, twembedp) = twist_security(p, q)
-                if twsecp < TWIST_SECURITY: continue
+                if twsecp < twistsec: continue
                 (twsecq, twembedq) = twist_security(q, p)
-                if twsecq < TWIST_SECURITY: continue
+                if twsecq < twistsec: continue
 
                 (secp, embedp) = curve_security(p, q)
                 (secq, embedq) = curve_security(q, p)
@@ -153,24 +155,25 @@ def find_nice_curves(strategy, L, twoadicity, stretch, wid, processes):
                 twembeddivp = (2*p + 1 - q)/twembedp
                 twembeddivq = (2*q + 1 - p)/twembedq
 
+                iso_Ep = find_iso(Ep) if isogenies else None
+                iso_Eq = find_iso(Eq) if isogenies else None
+
                 yield (p, q, bp, bq, zetap, zetaq, qdesc, primp, primq, secp, secq, twsecp, twsecq,
-                       embeddivp, embeddivq, twembeddivp, twembeddivq)
+                       embeddivp, embeddivq, twembeddivp, twembeddivq, iso_Ep, iso_Eq, isogenies)
 
 def endo(E, zeta, P):
    (xp, yp) = P.xy()
    return E(zeta*xp, yp)
 
-def find_curve(p, q):
-    for b in COEFFICIENT_RANGE:
+def find_curve(p, q, b_range=None):
+    for b in (b_range or COEFFICIENT_RANGE):
         E = EllipticCurve(GF(p), [0, b])
         if E.count_points() == q:
             return (E, b)
     return (None, None)
 
-def find_lowest_prime(p):
-    for r in ACCEPTABLE_PRIMES:
-        if gcd(p-1, r) == 1:
-            return r
+def find_gcd_primes(p):
+    return (r for r in GCD_PRIMES if gcd(p-1, r) == 1)
 
 pi_12 = (pi/12).numerical_approx()
 
@@ -198,6 +201,18 @@ def embedding_degree(p, r):
 
     return d
 
+def find_iso(E):
+    # Based on <https://eprint.iacr.org/2019/403.pdf> Appendix A.
+    # Look for isogenous curves having j-invariant not in {0, 1728}.
+    for degree in primes(ISOGENY_DEGREE_PRIMES):
+        sys.stdout.write('~')
+        sys.stdout.flush()
+        for iso in E.isogenies_prime_degree(degree):
+            if iso.codomain().j_invariant() not in (0, 1728):
+                return iso.dual()
+
+    return None
+
 
 def format_weight(x, detail=True):
     X = format(abs(x), 'b')
@@ -215,10 +230,25 @@ def main():
     args = sys.argv[1:]
     strategy = near_powerof2_order if "--nearpowerof2" in args else low_hamming_order
     processes = 1 if "--sequential" in args else cpu_count()
+    if processes >= 6:
+        processes -= 2
+    isogenies = "--isogenies" in args
+    twistsec = 0 if "--ignoretwist" in args else DEFAULT_TWIST_SECURITY
     args = [arg for arg in args if not arg.startswith("--")]
 
     if len(args) < 1:
-        print("Usage: sage amicable.sage [--sequential] [--nearpowerof2] <min-bitlength> [<min-2adicity> [<stretch]]\n")
+        print("""
+Usage: sage amicable.sage [--sequential] [--isogenies] [--nearpowerof2] <min-bitlength> [<min-2adicity> [<stretch]]
+
+Arguments:
+  --sequential     Use only one thread, avoiding non-determinism in the output order.
+  --isogenies      Search for and print isogenies useful for a "simplified SWU" hash to curve.
+  --ignoretwist    Ignore twist security.
+  --nearpowerof2   Search for primes near a power of 2, rather than with low Hamming weight.
+  <min-bitlength>  Both primes should have this minimum bit length.
+  <min-2adicity>   Both primes should have this minimum 2-adicity.
+  <stretch>        Find more candidates, by filtering from 2-adicity smaller by this many bits.
+""")
         return
 
     L          = int(args[0])
@@ -230,7 +260,7 @@ def main():
 
     try:
         for wid in range(processes):
-            pool.apply_async(worker, (strategy, L, twoadicity, stretch, wid, processes))
+            pool.apply_async(worker, (strategy, L, twoadicity, stretch, isogenies, twistsec, wid, processes))
 
         while True:
             sleep(1000)
@@ -249,7 +279,7 @@ def worker(*args):
 
 def real_worker(*args):
     for (p, q, bp, bq, zetap, zetaq, qdesc, primp, primq, secp, secq, twsecp, twsecq,
-         embeddivp, embeddivq, twembeddivp, twembeddivq) in find_nice_curves(*args):
+         embeddivp, embeddivq, twembeddivp, twembeddivq, iso_Ep, iso_Eq, isogenies) in find_nice_curves(*args):
         output  = "\n"
         output += "p   = %s\n" % format_weight(p)
         output += "q   = %s\n" % format_weight(q)
@@ -260,8 +290,8 @@ def real_worker(*args):
         output += "Ep/Fp : y^2 = x^3 + %d\n" % (bp,)
         output += "Eq/Fq : y^2 = x^3 + %d\n" % (bq,)
 
-        output += "gcd(p-1, %d) = 1\n" % find_lowest_prime(p)
-        output += "gcd(q-1, %d) = 1\n" % find_lowest_prime(q)
+        output += "gcd(p-1, α) = 1 for α ∊ {%s}\n" % (", ".join(map(str, find_gcd_primes(p))),)
+        output += "gcd(q-1, α) = 1 for α ∊ {%s}\n" % (", ".join(map(str, find_gcd_primes(q))),)
 
         output += "%d is %ssquare and %sprimitive in Fp\n" % (bp, "" if Mod(bp, p).is_square() else "non", "" if primp else "non")
         output += "%d is %ssquare and %sprimitive in Fq\n" % (bq, "" if Mod(bq, q).is_square() else "non", "" if primq else "non")
@@ -271,6 +301,18 @@ def real_worker(*args):
 
         output += "Ep twist security = %.1f, embedding degree = (2p + 1 - q)/%d\n" % (twsecp, twembeddivp)
         output += "Eq twist security = %.1f, embedding degree = (2q + 1 - p)/%d\n" % (twsecq, twembeddivq)
+
+        if iso_Ep is not None:
+            output += "iso_Ep = %r\n" % (iso_Ep,)
+            output += "iso_Ep maps = %r\n" % (iso_Ep.rational_maps(),)
+        elif isogenies:
+            output += "No Ep isogenies for simplified SWU with degree ≤ %d\n" % (ISOGENY_DEGREE_MAX,)
+
+        if iso_Eq is not None:
+            output += "iso_Eq = %r\n" % (iso_Eq,)
+            output += "iso_Eq maps = %r\n" % (iso_Eq.rational_maps(),)
+        elif isogenies:
+            output += "No Eq isogenies for simplified SWU with degree ≤ %d\n" % (ISOGENY_DEGREE_MAX,)
 
         print(output)  # one syscall to minimize tearing
 
