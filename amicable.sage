@@ -27,7 +27,7 @@ ISOGENY_DEGREE_MAX = list(primes(ISOGENY_DEGREE_PRIMES))[-1]
 
 DEFAULT_TWIST_SECURITY = 120
 REQUIRE_PRIMITIVE = True
-REQUIRE_HALFZERO = True
+REQUIRE_HALFZERO = True  # nearpowerof2 strategy only
 
 
 # <https://cryptojedi.org/papers/pfcpo.pdf> section 2:
@@ -58,7 +58,7 @@ def low_hamming_order(L, twoadicity, wid, processes):
             V = Vbase + sum([1 << i for i in Vc]) + 1
             assert(((V-1)/2) % (1<<twoadicity) == 0)
             for Tw in range(1, w+1):
-                for Tc in combinations(range(trailing_zeros, tlen), Tw):
+                for Tc in combinations(range(trailing_zeros, Tlen), Tw):
                     T = Tbase + sum([1 << i for i in Tc]) + 1
                     assert(((T-1)/2) % (1<<twoadicity) == 0)
                     if T % 6 != 1:
@@ -110,7 +110,7 @@ def find_nice_curves(strategy, L, twoadicity, stretch, isogenies, twistsec, wid,
 
         for (q, qdesc) in ((p + 1 - T,          "p + 1 - T"),
                            (p + 1 + (T-3*V)//2, "p + 1 + (T-3*V)/2")):
-            if REQUIRE_HALFZERO and q>>(L//2) != 1<<(L - 1 - L//2):
+            if strategy == near_powerof2_order and REQUIRE_HALFZERO and q>>(L//2) != 1<<(L - 1 - L//2):
                 continue
 
             if q not in (p, p+1, p-1) and q > 1<<(L-1) and q % 6 == 1 and q % (1<<twoadicity) == 1 and is_prime(q) and is_prime(p):
