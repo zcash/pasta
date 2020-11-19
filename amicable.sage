@@ -4,8 +4,8 @@
 import sys
 from multiprocessing import Pool, cpu_count
 from traceback import print_exc
-from math import ceil
 from itertools import combinations
+from string import maketrans
 
 if sys.version_info[0] == 2: range = xrange
 
@@ -22,8 +22,9 @@ COEFFICIENT_RANGE = (5,)
 
 GCD_PRIMES = (5, 7, 11, 13, 17)
 
-ISOGENY_DEGREE_PRIMES = 40
-ISOGENY_DEGREE_MAX = list(primes(ISOGENY_DEGREE_PRIMES))[-1]
+# Set to a prime, or 0 to disable searching for isogenies.
+ISOGENY_DEGREE_MAX = 3
+#ISOGENY_DEGREE_MAX = 37
 
 DEFAULT_TWIST_SECURITY = 120
 REQUIRE_PRIMITIVE = True
@@ -100,7 +101,9 @@ def symmetric_range(n, base=0, step=1):
         yield -i
         yield i+1
 
-def find_nice_curves(strategy, L, twoadicity, stretch, isogenies, twistsec, wid, processes):
+SWAP_SIGNS = maketrans("+-", "-+")
+
+def find_nice_curves(strategy, L, twoadicity, stretch, requireisos, sortpq, twistsec, wid, processes):
     for (p, T, V) in strategy(L, max(0, twoadicity-stretch), wid, processes):
         if p % (1<<twoadicity) != 1:
             continue
@@ -114,6 +117,10 @@ def find_nice_curves(strategy, L, twoadicity, stretch, isogenies, twistsec, wid,
                 continue
 
             if q not in (p, p+1, p-1) and q > 1<<(L-1) and q % 6 == 1 and q % (1<<twoadicity) == 1 and is_prime(q) and is_prime(p):
+                if sortpq and q < p:
+                    (p, q) = (q, p)
+                    qdesc = qdesc.translate(SWAP_SIGNS)
+
                 (Ep, bp) = find_curve(p, q)
                 if bp == None: continue
                 (Eq, bq) = find_curve(q, p, (bp,))
@@ -155,11 +162,13 @@ def find_nice_curves(strategy, L, twoadicity, stretch, isogenies, twistsec, wid,
                 twembeddivp = (2*p + 1 - q)/twembedp
                 twembeddivq = (2*q + 1 - p)/twembedq
 
-                iso_Ep = find_iso(Ep) if isogenies else None
-                iso_Eq = find_iso(Eq) if isogenies else None
+                iso_Ep = find_iso(Ep)
+                iso_Eq = find_iso(Eq)
+                if requireisos and (iso_Ep is None or iso_Eq is None):
+                    continue
 
                 yield (p, q, bp, bq, zetap, zetaq, qdesc, primp, primq, secp, secq, twsecp, twsecq,
-                       embeddivp, embeddivq, twembeddivp, twembeddivq, iso_Ep, iso_Eq, isogenies)
+                       embeddivp, embeddivq, twembeddivp, twembeddivq, iso_Ep, iso_Eq)
 
 def endo(E, zeta, P):
    (xp, yp) = P.xy()
@@ -204,7 +213,7 @@ def embedding_degree(p, r):
 def find_iso(E):
     # Based on <https://eprint.iacr.org/2019/403.pdf> Appendix A.
     # Look for isogenous curves having j-invariant not in {0, 1728}.
-    for degree in primes(ISOGENY_DEGREE_PRIMES):
+    for degree in primes(ISOGENY_DEGREE_MAX+1):
         sys.stdout.write('~')
         sys.stdout.flush()
         for iso in E.isogenies_prime_degree(degree):
@@ -232,17 +241,19 @@ def main():
     processes = 1 if "--sequential" in args else cpu_count()
     if processes >= 6:
         processes -= 2
-    isogenies = "--isogenies" in args
+    requireisos = "--requireisos" in args
+    sortpq = "--sortpq" in args
     twistsec = 0 if "--ignoretwist" in args else DEFAULT_TWIST_SECURITY
     args = [arg for arg in args if not arg.startswith("--")]
 
     if len(args) < 1:
         print("""
-Usage: sage amicable.sage [--sequential] [--isogenies] [--nearpowerof2] <min-bitlength> [<min-2adicity> [<stretch]]
+Usage: sage amicable.sage [--sequential] [--requireisos] [--sortpq] [--ignoretwist] [--nearpowerof2] <min-bitlength> [<min-2adicity> [<stretch]]
 
 Arguments:
   --sequential     Use only one thread, avoiding non-determinism in the output order.
-  --isogenies      Search for and print isogenies useful for a "simplified SWU" hash to curve.
+  --requireisos    Require isogenies useful for a "simplified SWU" hash to curve.
+  --sortpq         Sort p smaller than q.
   --ignoretwist    Ignore twist security.
   --nearpowerof2   Search for primes near a power of 2, rather than with low Hamming weight.
   <min-bitlength>  Both primes should have this minimum bit length.
@@ -260,7 +271,7 @@ Arguments:
 
     try:
         for wid in range(processes):
-            pool.apply_async(worker, (strategy, L, twoadicity, stretch, isogenies, twistsec, wid, processes))
+            pool.apply_async(worker, (strategy, L, twoadicity, stretch, requireisos, sortpq, twistsec, wid, processes))
 
         while True:
             sleep(1000)
@@ -279,7 +290,7 @@ def worker(*args):
 
 def real_worker(*args):
     for (p, q, bp, bq, zetap, zetaq, qdesc, primp, primq, secp, secq, twsecp, twsecq,
-         embeddivp, embeddivq, twembeddivp, twembeddivq, iso_Ep, iso_Eq, isogenies) in find_nice_curves(*args):
+         embeddivp, embeddivq, twembeddivp, twembeddivq, iso_Ep, iso_Eq) in find_nice_curves(*args):
         output  = "\n"
         output += "p   = %s\n" % format_weight(p)
         output += "q   = %s\n" % format_weight(q)
@@ -305,13 +316,13 @@ def real_worker(*args):
         if iso_Ep is not None:
             output += "iso_Ep = %r\n" % (iso_Ep,)
             output += "iso_Ep maps = %r\n" % (iso_Ep.rational_maps(),)
-        elif isogenies:
+        elif ISOGENY_DEGREE_MAX > 0:
             output += "No Ep isogenies for simplified SWU with degree ≤ %d\n" % (ISOGENY_DEGREE_MAX,)
 
         if iso_Eq is not None:
             output += "iso_Eq = %r\n" % (iso_Eq,)
             output += "iso_Eq maps = %r\n" % (iso_Eq.rational_maps(),)
-        elif isogenies:
+        elif ISOGENY_DEGREE_MAX > 0:
             output += "No Eq isogenies for simplified SWU with degree ≤ %d\n" % (ISOGENY_DEGREE_MAX,)
 
         print(output)  # one syscall to minimize tearing
