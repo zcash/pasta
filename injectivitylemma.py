@@ -22,6 +22,9 @@ for k in (1, 2):
     M_k = [list(s) for s in product(c_d(), repeat=k)]
     assert(len(M_k) == 4**k)
 
+    for cd in M_k:
+        print("%r -> %r" % (cd, sums_mod4(cd)))
+
     for (cd, cd_dash) in product(M_k, repeat=2):
         if cd[0] != cd_dash[0]:
             assert(sums_mod4(cd) != sums_mod4(cd_dash))
