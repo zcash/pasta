@@ -5,9 +5,13 @@ import sys
 from multiprocessing import Pool, cpu_count
 from traceback import print_exc
 from itertools import combinations
-from string import maketrans
 
-if sys.version_info[0] == 2: range = xrange
+if sys.version_info[0] == 2:
+    range = xrange
+    from string import maketrans
+else:
+    maketrans = str.maketrans
+
 
 # Let Ep/Fp : y^2 = x^3 + bp
 # Let Eq/Fq : y^2 = x^3 + bq
