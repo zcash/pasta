@@ -106,6 +106,7 @@ def D(q, zeta, mm, animator=None):
         if x0-1 < len(Dcheck): assert Dcheck[x0-1] == cur.d
         if x0 > mm:
             if animator is not None:
+                if DEBUG: print("(q, zeta, old, cur, s) =", (q, zeta, old, cur, s))
                 animator.render(q, zeta, old, cur, None, s)
             return cur.d
         if x0 < len(Dcheck): assert Dcheck[x0] == d0
@@ -118,6 +119,7 @@ def D(q, zeta, mm, animator=None):
             if x1-1 < len(Dcheck): assert Dcheck[x1-1] == d0
             if x1 > mm:
                 if animator is not None:
+                    if DEBUG: print("(q, zeta, old, cur, s+1) =", (q, zeta, old, cur, s+1))
                     animator.render(q, zeta, old, cur, None, s+1)
                 return d0
             if x1 < len(Dcheck): assert Dcheck[x1] == d1
@@ -207,12 +209,15 @@ class Animator:
         self.name = name
 
     def render(self, q, zeta, old, cur, new, s):
+        sys.stdout.write(':')
+        sys.stdout.flush()
+
         n = min(cur.n, q//2)
         for aa in range(1, s+1):
             self.render_zoomed(q, zeta, old, cur, None, aa,  n)
 
         if new is None:
-            self.render_zoomed(q, zeta, old, cur, new,  s+1, n, final=True)
+            self.render_zoomed(q, zeta, old, cur, new,  s,   n, final=True)
             return
 
         self.render_zoomed(    q, zeta, old, cur, new,  s+1, n, frames=self.pause_frames)
