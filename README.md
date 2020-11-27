@@ -34,7 +34,7 @@ use `--sequential`.)
 
 Prerequisites:
 
-* apt-get install sagemath
+* ``apt-get install sagemath``
 
 Run ``sage verify.sage Ep`` and ``sage verify.sage Eq``; or ``./run.sh`` to run both
 and also print out the results.
@@ -49,7 +49,7 @@ showing the minimum distances between multiples of ζ used in the proof, run ``.
 
 ``animation.sh`` has the following prerequisites:
 
-* apt-get install ffmpeg ffcvt
-* pip3 install bintrees Pillow
+* ``apt-get install ffmpeg ffcvt``
+* ``pip3 install bintrees Pillow``
 
 ``checksumsets.py`` on its own only requires the ``bintrees`` Python package.
