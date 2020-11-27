@@ -4,7 +4,6 @@ import os
 import sys
 import traceback
 from errno import ENOENT, EEXIST
-from sortedcontainers import SortedSet
 
 
 def readfile(fn):
@@ -59,8 +58,8 @@ def verify():
     if e.errno != ENOENT: raise
     s = set()
 
-  needtofactor = SortedSet()
-  V = SortedSet() # distinct verified primes
+  needtofactor = set()
+  V = set()  # distinct verified primes
   verify_primes(V, s, needtofactor)
   verify_pass(V, needtofactor)
 
@@ -70,7 +69,7 @@ def verify():
     k = len(needtofactor) - len(old)
     sys.stdout.write('Factoring %d integer%s' % (k, '' if k == 1 else 's'))
     sys.stdout.flush()
-    for x in needtofactor:
+    for x in sorted(needtofactor):
       if x not in old:
         for (y, z) in factor(x):
           s.add(y)
@@ -105,7 +104,7 @@ def verify_primes(V, s, needtofactor):
       proof += '<p>Take b = %s.\n' % base
       proof += '<p>b^(n-1) mod n = 1.\n'
       f = factor(1)
-      for v in reversed(V):
+      for v in sorted(V, reverse=True):
         if f.prod()^2 <= n:
           if n % v == 1:
             u = base^((n-1)/v)-1
@@ -128,6 +127,7 @@ def verify_primes(V, s, needtofactor):
 
 
 def verify_pass(V, needtofactor):
+  V = sorted(V)
   p = Integer(readfile('p'))
   k = GF(p)
   kz.<z> = k[]
