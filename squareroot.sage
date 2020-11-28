@@ -53,13 +53,15 @@ class SqrtField:
         (self.p, self.n, self.m, self.g, self.gtab, self.minus1, self.base_cost) = (
               p,      n,      m,      g,      gtab,      minus1,      base_cost)
 
-        for k in range(32):
-            self.g_to_power_of_2(k)
+        if DEBUG:
+            for k in range(32):
+                self.g_to_power_of_2(k)
 
     def g_to_power_of_2(self, k):
-        expected = self.g^(2^k)
         res = self.gtab[k // 8][1<<(k % 8)]
-        assert res == expected
+        if DEBUG:
+            expected = self.g^(2^k)
+            assert res == expected, (k, self.g, res, expected)
         return res
 
     def mul_by_g_to(self, acc, t, cost):
@@ -71,7 +73,7 @@ class SqrtField:
             t >>= 8
             cost.muls += 1
 
-        assert acc == expected
+        assert acc == expected, (t, acc, expected)
         return acc
 
     def eval(self, alpha, cost):
