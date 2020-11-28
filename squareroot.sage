@@ -36,7 +36,18 @@ class SqrtField:
         assert p == 1 + m * 2^n
         assert Mod(z, p).multiplicative_order() == p-1
         g = Mod(z, p)^m
-        gtab = [[g^(256^i * j) for j in range(256)] for i in range(4)]
+
+        gtab = [[0]*256 for i in range(4)]
+        gi = g
+        for i in range(4):
+            if DEBUG: assert gi == g^(256^i), (i, gi)
+            acc = Mod(1, p)
+            for j in range(256):
+                 if DEBUG: assert acc == g^(256^i * j), (i, j, acc)
+                 gtab[i][j] = acc
+                 acc *= gi
+            gi = acc
+
         minus1 = Mod(-1, p)
 
         (self.p, self.n, self.m, self.g, self.gtab, self.minus1, self.base_cost) = (
