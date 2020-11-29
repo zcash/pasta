@@ -4,17 +4,10 @@
 # from <https://eprint.iacr.org/2020/1407>, for the Pasta fields.
 
 from copy import copy
-from collections import deque
 
 DEBUG = True
 VERBOSE = False
 EXPENSIVE = False
-
-def count_bits(x):
-    return len(format(x, 'b'))
-
-def count_ones(x):
-    return sum([int(b) for b in format(x, 'b')])
 
 
 class Cost:
@@ -64,10 +57,6 @@ class SqrtField:
         (self.p, self.n, self.m, self.g, self.gtab, self.invtab, self.minus1, self.base_cost) = (
               p,      n,      m,      g,      gtab,      invtab,      minus1,      base_cost)
 
-        if DEBUG:
-            for k in range(32):
-                self.g_to_power_of_2(k)
-
     def hash(self, x):
         return (int(x) % (1 << self.hash_bits)) % self.hash_mod
 
@@ -95,15 +84,7 @@ class SqrtField:
         print("best is hash_bits=%d, hash_mod=%d" % (hash_bits, hash_mod))
         return (hash_bits, hash_mod)
 
-    def g_to_power_of_2(self, k):
-        res = self.gtab[k // 8][1<<(k % 8)]
-        if DEBUG:
-            expected = self.g^(2^k)
-            assert res == expected, (k, self.g, res, expected)
-        return res
-
     def mul_by_g_to(self, acc, t, j, k, cost):
-        if VERBOSE: print(t, count_bits(t), count_ones(t))
         if DEBUG: expected = acc * self.g^t
 
         t >>= 8*j
@@ -117,50 +98,6 @@ class SqrtField:
 
     def eval(self, alpha):
         s = self.invtab[self.hash(alpha)] << 24
-        #if DEBUG:
-        #    s_expected = self.eval_old(alpha)
-        #    assert s == s_expected, (s, s_expected, alpha * self.g^s, alpha * self.g^s_expected)
-        #    assert 1 == alpha * self.g^s
-        return s
-
-    def eval_old(self, alpha):
-        if EXPENSIVE:
-            order = alpha.multiplicative_order()
-            assert order.divides(2^self.n)
-            if VERBOSE: print("order = 0b%s" % (format(order, 'b'),))
-
-        delta = alpha
-        s = 0
-        if DEBUG: assert delta == alpha * self.g^s
-        if DEBUG: bits = deque()
-
-        while delta != 1:
-            # find(delta)
-            mu = delta
-            i = 0
-            while mu != self.minus1:
-                mu *= mu
-                #cost.sqrs += 1
-                i += 1
-            assert i < self.n
-            # end find
-
-            k = self.n-1-i
-            if DEBUG:
-                assert k >= 23
-                assert k not in bits
-                bits.append(k)
-                if VERBOSE: print(bits)
-            s += 1<<k
-            if i > 0:
-                delta *= self.g_to_power_of_2(k)
-                if DEBUG: assert delta == alpha * self.g^s
-                #cost.muls += 1
-            else:
-                delta = -delta
-                if DEBUG: assert delta == alpha * self.g^s
-
-        if DEBUG: assert 1 == alpha * self.g^s
         return s
 
     def sarkar_sqrt(self, u):
