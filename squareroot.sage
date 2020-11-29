@@ -134,16 +134,16 @@ class SqrtField:
         if EXPENSIVE: assert x.multiplicative_order().divides(2^self.n)
 
         x3 = x
-        x2 = x3^(1<<7)
+        x2 = x3^(1<<8)
         x1 = x2^(1<<8)
         x0 = x1^(1<<8)
         if DEBUG:
-            assert x0 == x^(1<<(self.n-1-8))
-            assert x1 == x^(1<<(self.n-1-16))
-            assert x2 == x^(1<<(self.n-1-24))
+            assert x0 == x^(1<<(self.n-1-7))
+            assert x1 == x^(1<<(self.n-1-15))
+            assert x2 == x^(1<<(self.n-1-23))
             assert x3 == x^(1<<(self.n-1-31))
 
-        cost.sqrs += 7+8+8
+        cost.sqrs += 8+8+8
 
         # i = 0
         s = self.eval(x0, cost)
@@ -159,7 +159,7 @@ class SqrtField:
         s = self.eval(alpha, cost)
 
         # i = 3
-        t = (s+t) >> 7
+        t = (s+t) >> 8
         alpha = self.mul_by_g_to(x3, t, cost)
         s = self.eval(alpha, cost)
 
