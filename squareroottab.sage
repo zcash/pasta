@@ -132,6 +132,7 @@ class SqrtField:
 
         if res^2 != u:
             res = None
+        cost.sqrs += 1
         if DEBUG: assert u.is_square() == (res is not None)
         return (res, cost)
 
