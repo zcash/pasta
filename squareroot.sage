@@ -4,8 +4,11 @@
 # from <https://eprint.iacr.org/2020/1407>, for the Pasta fields.
 
 from copy import copy
+from collections import deque
 
-DEBUG = False
+DEBUG = True
+VERBOSE = True
+EXPENSIVE = True
 
 def count_bits(x):
     return len(format(x, 'b'))
@@ -34,8 +37,9 @@ class SqrtField:
         n = 32
         m = p >> n
         assert p == 1 + m * 2^n
-        assert Mod(z, p).multiplicative_order() == p-1
+        if EXPENSIVE: assert Mod(z, p).multiplicative_order() == p-1
         g = Mod(z, p)^m
+        if EXPENSIVE: assert g.multiplicative_order() == 2^n
 
         gtab = [[0]*256 for i in range(4)]
         gi = g
@@ -65,20 +69,28 @@ class SqrtField:
         return res
 
     def mul_by_g_to(self, acc, t, cost):
-        if DEBUG: print(t, count_bits(t), count_ones(t))
-        expected = acc * self.g^t
+        if VERBOSE: print(t, count_bits(t), count_ones(t))
+        if DEBUG: expected = acc * self.g^t
 
         for i in range(4):
             acc *= self.gtab[i][t % 256]
             t >>= 8
             cost.muls += 1
 
-        assert acc == expected, (t, acc, expected)
+        if DEBUG: assert acc == expected, (t, acc, expected)
         return acc
 
     def eval(self, alpha, cost):
+        if EXPENSIVE:
+            order = alpha.multiplicative_order()
+            assert order.divides(2^self.n)
+            if VERBOSE: print("order = 0b%s" % (format(order, 'b'),))
+
         delta = alpha
         s = 0
+        if DEBUG: assert delta == alpha * self.g^s
+        if DEBUG: bits = deque()
+
         while delta != 1:
             # find(delta)
             mu = delta
@@ -87,20 +99,29 @@ class SqrtField:
                 mu *= mu
                 cost.sqrs += 1
                 i += 1
+            assert i < self.n
             # end find
 
             k = self.n-1-i
+            if DEBUG:
+                assert k >= 23
+                assert k not in bits
+                bits.append(k)
+                if VERBOSE: print(bits)
             s += 1<<k
             if i > 0:
                 delta *= self.g_to_power_of_2(k)
+                if DEBUG: assert delta == alpha * self.g^s
                 cost.muls += 1
             else:
                 delta = -delta
+                if DEBUG: assert delta == alpha * self.g^s
 
+        if DEBUG: assert 1 == alpha * self.g^s
         return s
 
     def sarkar_sqrt(self, u):
-        if DEBUG: print("u = %r" % (u,))
+        if VERBOSE: print("u = %r" % (u,))
 
         # This would actually be done using the addition chain.
         v = u^((self.m-1)/2)
@@ -109,16 +130,18 @@ class SqrtField:
         x = u * v^2
         cost.sqrs += 1
         cost.muls += 1
-        assert x == u^self.m
+        if DEBUG: assert x == u^self.m
+        if EXPENSIVE: assert x.multiplicative_order().divides(2^self.n)
 
         x3 = x
         x2 = x3^(1<<7)
         x1 = x2^(1<<8)
         x0 = x1^(1<<8)
-        assert x0 == x^(1<<(self.n-1-8))
-        assert x1 == x^(1<<(self.n-1-16))
-        assert x2 == x^(1<<(self.n-1-24))
-        assert x3 == x^(1<<(self.n-1-31))
+        if DEBUG:
+            assert x0 == x^(1<<(self.n-1-8))
+            assert x1 == x^(1<<(self.n-1-16))
+            assert x2 == x^(1<<(self.n-1-24))
+            assert x3 == x^(1<<(self.n-1-31))
 
         cost.sqrs += 7+8+8
 
@@ -146,7 +169,7 @@ class SqrtField:
 
         if res^2 != u:
             res = None
-        assert u.is_square() == (res is not None)
+        if DEBUG: assert u.is_square() == (res is not None)
         return (res, cost)
 
 
@@ -175,7 +198,6 @@ if True:
     iters = 1000
     for i in range(iters):
         x = GF(p).random_element()
-        #print(x)
         (_, cost) = F_p.sarkar_sqrt(x)
         total_cost += cost
 
