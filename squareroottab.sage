@@ -54,10 +54,8 @@ class SqrtField:
 
         gtab[3] = gtab[3][:128]
 
-        minus1 = Mod(-1, p)
-
-        (self.p, self.n, self.m, self.g, self.gtab, self.invtab, self.minus1, self.base_cost) = (
-              p,      n,      m,      g,      gtab,      invtab,      minus1,      base_cost)
+        (self.p, self.n, self.m, self.gtab, self.invtab, self.base_cost) = (
+              p,      n,      m,      gtab,      invtab,      base_cost)
 
     def hash(self, x):
         return (int(x) % (1 << self.hash_bits)) % self.hash_mod
