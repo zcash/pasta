@@ -143,7 +143,7 @@ q = 0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001
 
 # see addchain.py for base costs of u^{(m-1)/2}
 F_p = SqrtField(p, 5, Cost(223, 23), hash_bits=24, hash_mod=1415)
-F_q = SqrtField(q, 5, Cost(222, 25), hash_bits=30, hash_mod=2384)
+F_q = SqrtField(q, 5, Cost(223, 24), hash_bits=30, hash_mod=2384)
 
 
 print("p = %r" % (p,))
