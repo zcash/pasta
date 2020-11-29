@@ -52,6 +52,8 @@ class SqrtField:
         for j in range(256):
             invtab[self.hash(gtab[3][j])] = (256-j) % 256
 
+        gtab[3] = gtab[3][:128]
+
         minus1 = Mod(-1, p)
 
         (self.p, self.n, self.m, self.g, self.gtab, self.invtab, self.minus1, self.base_cost) = (
@@ -96,10 +98,6 @@ class SqrtField:
         if DEBUG: assert acc == expected, (t, acc, expected)
         return acc
 
-    def eval(self, alpha):
-        s = self.invtab[self.hash(alpha)] << 24
-        return s
-
     def sarkar_sqrt(self, u):
         if VERBOSE: print("u = %r" % (u,))
 
@@ -123,25 +121,22 @@ class SqrtField:
 
         cost.sqrs += 8+8+8
 
-        # i = 0
-        s = self.eval(x0)
-
-        # i = 1
-        t = s >> 8
+        # i = 0, 1
+        t = self.invtab[self.hash(x0)] << 16
         assert t & 0xFF00FFFF == 0, "0x%x" % (t,)
         alpha = self.mul_by_g_to(x1, t, 2, 3, cost)
-        s = self.eval(alpha)
+        s = self.invtab[self.hash(alpha)] << 24
 
         # i = 2
         t = (s+t) >> 8
         assert t & 0xFF0000FF == 0, "0x%x" % (t,)
         alpha = self.mul_by_g_to(x2, t, 1, 3, cost)
-        s = self.eval(alpha)
+        s = self.invtab[self.hash(alpha)] << 24
 
         # i = 3
         t = (s+t) >> 8
         alpha = self.mul_by_g_to(x3, t, 0, 3, cost)
-        s = self.eval(alpha)
+        s = self.invtab[self.hash(alpha)] << 24
 
         t = (s+t) >> 1
         res = self.mul_by_g_to(u * v, t, 0, 4, cost)
@@ -175,7 +170,7 @@ print(F_p.sarkar_sqrt(x))
 
 if True:
     total_cost = Cost(0, 0)
-    iters = 10000
+    iters = 1000
     for i in range(iters):
         x = GF(p).random_element()
         (_, cost) = F_p.sarkar_sqrt(x)
