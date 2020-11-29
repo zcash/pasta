@@ -86,18 +86,6 @@ class SqrtField:
         print("best is hash_bits=%d, hash_mod=%d" % (hash_bits, hash_mod))
         return (hash_bits, hash_mod)
 
-    def mul_by_g_to(self, acc, t, j, k, cost):
-        if DEBUG: expected = acc * self.g^t
-
-        t >>= 8*j
-        for i in range(j, k):
-            acc *= self.gtab[i][t % 256]
-            t >>= 8
-            cost.muls += 1
-
-        if DEBUG: assert acc == expected, (t, acc, expected)
-        return acc
-
     def sarkar_sqrt(self, u):
         if VERBOSE: print("u = %r" % (u,))
 
@@ -122,25 +110,27 @@ class SqrtField:
         cost.sqrs += 8+8+8
 
         # i = 0, 1
-        t = self.invtab[self.hash(x0)] << 16
-        assert t & 0xFF00FFFF == 0, "0x%x" % (t,)
-        alpha = self.mul_by_g_to(x1, t, 2, 3, cost)
-        s = self.invtab[self.hash(alpha)] << 24
+        t_ = self.invtab[self.hash(x0)]  # = t >> 16
+        assert t_ < 0x100, t_
+        alpha = x1 * self.gtab[2][t_]
+        cost.muls += 1
 
         # i = 2
-        t = (s+t) >> 8
-        assert t & 0xFF0000FF == 0, "0x%x" % (t,)
-        alpha = self.mul_by_g_to(x2, t, 1, 3, cost)
-        s = self.invtab[self.hash(alpha)] << 24
+        t_ += self.invtab[self.hash(alpha)] << 8  # = t >> 8
+        assert t_ < 0x10000, t_
+        alpha = x2 * self.gtab[1][t_ % 256] * self.gtab[2][t_ >> 8]
+        cost.muls += 2
 
         # i = 3
-        t = (s+t) >> 8
-        alpha = self.mul_by_g_to(x3, t, 0, 3, cost)
-        s = self.invtab[self.hash(alpha)] << 24
+        t_ += self.invtab[self.hash(alpha)] << 16  # = t
+        assert t_ < 0x1000000, t_
+        alpha = x3 * self.gtab[0][t_ % 256] * self.gtab[1][(t_ >> 8) % 256] * self.gtab[2][t_ >> 16]
+        cost.muls += 3
 
-        t = (s+t) >> 1
-        res = self.mul_by_g_to(u * v, t, 0, 4, cost)
-        cost.muls += 1
+        t_ = ((self.invtab[self.hash(alpha)] << 24) + t_) >> 1  # = t
+        assert t_ < 0x80000000, t_
+        res = u * v * self.gtab[0][t_ % 256] * self.gtab[1][(t_ >> 8) % 256] * self.gtab[2][(t_ >> 16) % 256] * self.gtab[3][t_ >> 24]
+        cost.muls += 5
 
         if res^2 != u:
             res = None
