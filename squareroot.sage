@@ -7,8 +7,8 @@ from copy import copy
 from collections import deque
 
 DEBUG = True
-VERBOSE = True
-EXPENSIVE = True
+VERBOSE = False
+EXPENSIVE = False
 
 def count_bits(x):
     return len(format(x, 'b'))
