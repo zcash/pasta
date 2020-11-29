@@ -127,9 +127,9 @@ class SqrtField:
         v = u^((self.m-1)/2)
         cost = copy(self.base_cost)
 
-        x = u * v^2
-        cost.sqrs += 1
-        cost.muls += 1
+        uv = u * v
+        x = uv * v
+        cost.muls += 2
         if DEBUG: assert x == u^self.m
         if EXPENSIVE: assert x.multiplicative_order().divides(2^self.n)
 
@@ -164,8 +164,7 @@ class SqrtField:
         s = self.eval(alpha, cost)
 
         t = (s+t) >> 1
-        res = self.mul_by_g_to(u * v, t, cost)
-        cost.muls += 1
+        res = self.mul_by_g_to(uv, t, cost)
 
         if res^2 != u:
             res = None

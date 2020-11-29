@@ -93,9 +93,9 @@ class SqrtField:
         v = u^((self.m-1)/2)
         cost = copy(self.base_cost)
 
-        x3 = u * v^2
-        cost.sqrs += 1
-        cost.muls += 1
+        uv = u * v
+        x3 = uv * v
+        cost.muls += 2
         if DEBUG: assert x3 == u^self.m
         if EXPENSIVE: assert x3.multiplicative_order().divides(2^self.n)
 
@@ -129,8 +129,8 @@ class SqrtField:
 
         t_ = ((self.invtab[self.hash(alpha)] << 24) + t_) >> 1  # = t
         assert t_ < 0x80000000, t_
-        res = u * v * self.gtab[0][t_ % 256] * self.gtab[1][(t_ >> 8) % 256] * self.gtab[2][(t_ >> 16) % 256] * self.gtab[3][t_ >> 24]
-        cost.muls += 5
+        res = uv * self.gtab[0][t_ % 256] * self.gtab[1][(t_ >> 8) % 256] * self.gtab[2][(t_ >> 16) % 256] * self.gtab[3][t_ >> 24]
+        cost.muls += 4
 
         if res^2 != u:
             res = None
