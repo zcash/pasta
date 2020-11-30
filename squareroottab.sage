@@ -53,9 +53,12 @@ class SqrtField:
         (self.hash_xor, self.hash_mod) = (hash_xor, hash_mod)
 
         # Now invert gtab[3].
-        invtab = [0]*hash_mod
+        invtab = [1]*hash_mod
         for j in range(256):
-            invtab[self.hash(gtab[3][j])] = (256-j) % 256
+            h = self.hash(gtab[3][j])
+            # 1 is the last value to be assigned, so this ensures there are no collisions.
+            assert invtab[h] == 1
+            invtab[h] = (256-j) % 256
 
         gtab[3] = gtab[3][:128]
 
