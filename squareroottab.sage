@@ -5,6 +5,9 @@
 
 from copy import copy
 
+if sys.version_info[0] == 2:
+    range = xrange
+
 DEBUG = True
 VERBOSE = False
 EXPENSIVE = False
