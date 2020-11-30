@@ -29,7 +29,7 @@ class Cost:
 
 
 class SqrtField:
-    def __init__(self, p, z, base_cost, hash_bits=None, hash_mod=None):
+    def __init__(self, p, z, base_cost, hash_xor=None, hash_mod=None):
         n = 32
         m = p >> n
         assert p == 1 + m * 2^n
@@ -48,10 +48,12 @@ class SqrtField:
                  acc *= gi
             gi = acc
 
-        (self.hash_bits, self.hash_mod) = self.find_perfect_hash(gtab[3]) if hash_bits is None else (hash_bits, hash_mod)
+        if hash_xor is None:
+            (hash_xor, hash_mod) = self.find_perfect_hash(gtab[3])
+        (self.hash_xor, self.hash_mod) = (hash_xor, hash_mod)
 
         # Now invert gtab[3].
-        invtab = [0]*self.hash_mod
+        invtab = [0]*hash_mod
         for j in range(256):
             invtab[self.hash(gtab[3][j])] = (256-j) % 256
 
@@ -61,31 +63,33 @@ class SqrtField:
               p,      n,      m,      gtab,      invtab,      base_cost)
 
     def hash(self, x):
-        return (int(x) % (1 << self.hash_bits)) % self.hash_mod
+        return ((int(x) & 0xFFFFFFFF) ^^ self.hash_xor) % self.hash_mod
 
     def find_perfect_hash(self, gt):
-        def is_ok(c_bits, c_mod):
-            c_invtab = [False]*c_mod
+        gt = [int(x) & 0xFFFFFFFF for x in gt]
+        assert len(set(gt)) == len(gt)
+
+        def is_ok(c_invtab, c_xor, c_mod):
             for j in range(256):
-                hash = (int(gt[j]) % (1 << c_bits)) % c_mod
-                if c_invtab[hash]:
+                hash = (gt[j] ^^ c_xor) % c_mod
+                if c_invtab[hash] == c_mod:
                     return False
-                c_invtab[hash] = True
+                c_invtab[hash] = c_mod
 
             return True
 
-        hash_bits = None
-        hash_mod = None
-        for c_bits in range(8, 32):
-            for c_mod in range(256, 10000):
-                if is_ok(c_bits, c_mod):
-                    if VERBOSE: print(c_bits, c_mod)
-                    if hash_mod is None or c_mod < hash_mod:
-                        (hash_bits, hash_mod) = (c_bits, c_mod)
+        hash_xor = None
+        hash_mod = 10000
+        for c_xor in range(1, 0x200000):
+            c_invtab = [0]*hash_mod
+            for c_mod in range(256, hash_mod):
+                if is_ok(c_invtab, c_xor, c_mod):
+                    (hash_xor, hash_mod) = (c_xor, c_mod)
+                    print("0x%X: %d" % (hash_xor, hash_mod))
                     break
 
-        print("best is hash_bits=%d, hash_mod=%d" % (hash_bits, hash_mod))
-        return (hash_bits, hash_mod)
+        print("best is hash_xor=0x%X, hash_mod=%d" % (hash_xor, hash_mod))
+        return (hash_xor, hash_mod)
 
     def sarkar_sqrt(self, u):
         if VERBOSE: print("u = %r" % (u,))
@@ -144,8 +148,8 @@ p = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
 q = 0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001
 
 # see addchain.py for base costs of u^{(m-1)/2}
-F_p = SqrtField(p, 5, Cost(223, 23), hash_bits=24, hash_mod=1415)
-F_q = SqrtField(q, 5, Cost(223, 24), hash_bits=30, hash_mod=2384)
+F_p = SqrtField(p, 5, Cost(223, 23), hash_xor=0x11BE,   hash_mod=1098)
+F_q = SqrtField(q, 5, Cost(223, 24), hash_xor=0x116A9E, hash_mod=1206)
 
 
 print("p = %r" % (p,))
