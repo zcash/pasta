@@ -3,6 +3,7 @@
 # This implements a prototype of Palash Sarkar's square root algorithm
 # from <https://eprint.iacr.org/2020/1407>, for the Pasta fields.
 
+import sys
 from copy import copy
 
 if sys.version_info[0] == 2:
