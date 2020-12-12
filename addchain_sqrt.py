@@ -36,7 +36,10 @@ class Chain(object):
         return self.mul(self.sqr(x, n), y)
 
     def cost(self):
-        return (self.sqrs, self.muls, self.sqrs*self.SQR_COST + self.muls*self.MUL_COST)
+        return self.sqrs*self.SQR_COST + self.muls*self.MUL_COST
+
+    def __repr__(self):
+        return "%dS + %dM (%.1f)" % (self.sqrs, self.muls, self.cost())
 
 
 p = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
@@ -80,7 +83,7 @@ rr    = rch.sqrmul(rq,  7, r111)
 rs    = rch.sqrmul(rr,  3, r11)
 rt    = rch.sqr(rs)
 assert rt == r, format(rt, 'b')
-print(rch.cost())
+print(rch)
 
 
 # print(format(q >> (n+1), 'b'))
@@ -120,4 +123,4 @@ sr    = sch.sqrmul(sq,  5, s1011)
 ss    = sch.sqrmul(sr,  3, s1)
 st    = sch.sqr(ss, 4)
 assert st == s, format(st, 'b')
-print(sch.cost())
+print(sch)

@@ -165,7 +165,7 @@ class SqrtField:
 p = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
 q = 0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001
 
-# see addchain.py for base costs of u^{(m-1)/2}
+# see addchain_sqrt.py for base costs of u^{(m-1)/2}
 F_p = SqrtField(p, 5, Cost(223, 23), hash_xor=0x11BE,   hash_mod=1098)
 F_q = SqrtField(q, 5, Cost(223, 24), hash_xor=0x116A9E, hash_mod=1206)
 
