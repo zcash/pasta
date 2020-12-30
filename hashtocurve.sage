@@ -84,10 +84,11 @@ def find_z_sswu(E):
         ctr += 1
 
 
-p = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
-E_isop = EllipticCurve(GF(p), [10949663248450308183708987909873589833737836120165333298109615750520499732811, 1265])
-E_p    = EllipticCurve(GF(p), [0, 5])
-Z_isop = find_z_sswu(E_isop)
+p        = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
+E_isop_A = 10949663248450308183708987909873589833737836120165333298109615750520499732811
+E_isop   = EllipticCurve(GF(p), [E_isop_A, 1265])
+E_p      = EllipticCurve(GF(p), [0, 5])
+Z_isop   = find_z_sswu(E_isop)
 assert Z_isop == Mod(-13, p)
 
 k = 128
@@ -154,26 +155,97 @@ def map_to_curve_simple_swu(E, Z, us, c):
 
 
 # iso_Ep = Isogeny of degree 3 from Elliptic Curve defined by y^2 = x^3 + 10949663248450308183708987909873589833737836120165333298109615750520499732811*x + 1265 over Fp
-def iso_map(x, y, c):
+def isop_map_affine(x, y, c):
     c.muls += 2+1+1 + 2+1+1+2
     # batch inversion
     c.muls += 3
     c.invs += 1
-    return (((( 6432893846517566412420610278260439325191790329320346825767705947633326140075 *x +
-               23989696149150192365340222745168215001509815558210986772351135915822265203574)*x +
-               10492611921771203378452795982353351666191589197598957448093274638589204800759)*x +
-               12865787693035132824841220556520878650383580658640693651535411895266652280192) /
-             ((                                                                               x +
-               13271109177048389296812780941310096270046944650307955939477485891950613419807)*x +
-               22768321103861051515190775253992702316905399997697804654926324362758820947460),
-            (((11793638718615538422771118843477472096184948937087302513907460903994431256804 *x +
-               11994848074575096182670111372584107500754907779105493386175567957911132601787)*x +
-               28823569610051396102362669851238297121581474897215657071023781420043761726004)*x +
-                1072148974419594402070101713043406554198631721553391137627950991272221023311) * y /
-            (((                                                                               x +
-                5432652610908059517272798285879155923388888734491153551238890455750936314542)*x +
-               10408918692925056833786833257634153023990087029210292532869619559576527581706)*x +
-               28948022309329048855892746252171976963363056481941560715954676764349967629797))
+    Nx = ((( 6432893846517566412420610278260439325191790329320346825767705947633326140075 *x +
+            23989696149150192365340222745168215001509815558210986772351135915822265203574)*x +
+            10492611921771203378452795982353351666191589197598957448093274638589204800759)*x +
+            12865787693035132824841220556520878650383580658640693651535411895266652280192)
+    Dx =  ((                                                                               x +
+            13271109177048389296812780941310096270046944650307955939477485891950613419807)*x +
+            22768321103861051515190775253992702316905399997697804654926324362758820947460)
+
+    Ny = (((11793638718615538422771118843477472096184948937087302513907460903994431256804 *x +
+            11994848074575096182670111372584107500754907779105493386175567957911132601787)*x +
+            28823569610051396102362669851238297121581474897215657071023781420043761726004)*x +
+             1072148974419594402070101713043406554198631721553391137627950991272221023311) * y
+    Dy = (((                                                                               x +
+             5432652610908059517272798285879155923388888734491153551238890455750936314542)*x +
+            10408918692925056833786833257634153023990087029210292532869619559576527581706)*x +
+            28948022309329048855892746252171976963363056481941560715954676764349967629797)
+
+    return (Nx / Dx, Ny / Dy)
+
+# The same isogeny but in Jacobian coordinates <https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html>,
+# according to "Avoiding inversions" in [WB19, section 4.3].
+def isop_map_jacobian(x, y, z, c):
+    z2 = c.sqr(z)
+    z3 = c.mul(z, z2)
+    z4 = c.sqr(z2)
+    z6 = c.sqr(z3)
+
+    Nx = ((( 6432893846517566412420610278260439325191790329320346825767705947633326140075    *x +
+            23989696149150192365340222745168215001509815558210986772351135915822265203574*z2)*x +
+            10492611921771203378452795982353351666191589197598957448093274638589204800759*z4)*x +
+            12865787693035132824841220556520878650383580658640693651535411895266652280192*z6)
+    c.muls += 6
+    Dx =  ((                                                                              z2 *x +
+            13271109177048389296812780941310096270046944650307955939477485891950613419807*z4)*x +
+            22768321103861051515190775253992702316905399997697804654926324362758820947460*z6)
+    c.muls += 4
+
+    Ny = (((11793638718615538422771118843477472096184948937087302513907460903994431256804    *x +
+            11994848074575096182670111372584107500754907779105493386175567957911132601787*z2)*x +
+            28823569610051396102362669851238297121581474897215657071023781420043761726004*z4)*x +
+             1072148974419594402070101713043406554198631721553391137627950991272221023311*z6) * y
+    c.muls += 7
+    Dy = (((                                                                                  x +
+             5432652610908059517272798285879155923388888734491153551238890455750936314542*z2)*x +
+            10408918692925056833786833257634153023990087029210292532869619559576527581706*z4)*x +
+            28948022309329048855892746252171976963363056481941560715954676764349967629797*z6) * z3
+    c.muls += 6
+
+    zo = c.mul(Dx, Dy)
+    xo = c.mul(c.mul(Nx, Dy), zo)
+    yo = c.mul(c.mul(Ny, Dx), c.sqr(zo))
+
+    assert isop_map_affine(x / z2, y / z3, Cost()) == (xo / zo^2, yo / zo^3)
+    return (xo, yo, zo)
+
+
+# Unified addition on y^2 = x^3 + Ax + B with affine input and Jacobian output.
+# The inputs must not be the point at infinity; the output may be.
+def unified_mmadd_jacobian(A, Px, Py, Qx, Qy, c):
+    # Addition using Jacobian coordinates for general A
+    # <https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-mmadd-2007-bl>
+    H = Qx - Px
+    I = 4*c.sqr(H)
+    J = c.mul(H, I)
+    r = 2*(Qy - Py)
+    V = c.mul(Px, I)
+
+    # Doubling using Jacobian coordinates for general A
+    # <https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#doubling-mdbl-2007-bl>
+    XX = c.sqr(Px)
+    YY = c.sqr(Py)
+    YYYY = c.sqr(YY)
+    S = 2*(c.sqr(Px + YY) - XX - YYYY)
+    M = 3*XX + A
+
+    # Common part between doubling and addition. J = 0 for doubling.
+    M_or_r = select_z_nz(H, M, r)
+    S_or_V = select_z_nz(H, S, V)
+    Rx = c.sqr(M_or_r) - J - 2*S_or_V
+    Ry = c.mul(M_or_r, S_or_V - Rx) - select_z_nz(H, 8*YYYY, 2*c.mul(Py, J))
+
+    # If Q = -P (i.e. H = 0 and Py + Qy = 0), then the result is the point at infinity, represented by Rz = 0.
+    U = select_z_nz(Py + Qy, 0, Qy)
+    Rz = 2*select_z_nz(H, U, H)
+
+    return (Rx, Ry, Rz)
 
 
 def expand_message_xof(msg, DST, len_in_bytes):
@@ -198,7 +270,8 @@ def OS2IP(bs):
         acc = (acc<<8) + as_byte(b)
     return acc
 
-def hash_to_curve(msg, DST, uniform=True):
+
+def hash_to_curve_affine(msg, DST, uniform=True):
     c = Cost()
     us = hash_to_field(msg, DST, 2 if uniform else 1)
     #print("u = ", u)
@@ -218,7 +291,26 @@ def hash_to_curve(msg, DST, uniform=True):
 
     # no cofactor clearing needed since Pallas and Vesta are prime-order
     (x, y) = R.xy()
-    P = E_p(iso_map(x, y, c))
+    P = E_p(isop_map_affine(x, y, c))
+    return (P, c)
+
+def hash_to_curve_jacobian(msg, DST):
+    c = Cost()
+    us = hash_to_field(msg, DST, 2)
+    #print("u = ", u)
+    Qs = map_to_curve_simple_swu(E_isop, Z_isop, us, c)
+
+    R = Qs[0] + Qs[1]
+    #print("R = ", R)
+
+    (Q0x, Q0y) = Qs[0].xy()
+    (Q1x, Q1y) = Qs[1].xy()
+    (Rx, Ry, Rz) = unified_mmadd_jacobian(E_isop_A, Q0x, Q0y, Q1x, Q1y, c)
+    assert E_isop((Rx / Rz^2, Ry / Rz^3)) == R
+
+    # no cofactor clearing needed since Pallas and Vesta are prime-order
+    (Px, Py, Pz) = isop_map_jacobian(Rx, Ry, Rz, c)
+    P = E_p((Px / Pz^2, Py / Pz^3))
     return (P, c)
 
 
@@ -226,5 +318,7 @@ def hash_to_curve(msg, DST, uniform=True):
 
 iters = 100
 for i in range(iters):
-    (res, cost) = hash_to_curve(pack(">I", i), "blah", uniform=True)
-    print(res, cost)
+    (R_affine, cost_affine) = hash_to_curve_affine(pack(">I", i), "blah", uniform=True)
+    (R_jacobian, cost_jacobian) = hash_to_curve_jacobian(pack(">I", i), "blah")
+    assert(R_affine == R_jacobian)  # Sage will normalize them
+    print(R_affine, cost_affine, cost_jacobian)
