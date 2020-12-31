@@ -32,12 +32,22 @@ class Cost:
 
 
 class SqrtField:
-    def __init__(self, p, z, base_cost, hash_xor=None, hash_mod=None):
+    def __init__(self, p, z, base_cost, hash_xor=None, hash_mod=None, A=None, B=None):
         n = 32
         m = p >> n
         assert p == 1 + m * 2^n
         if EXPENSIVE: assert Mod(z, p).multiplicative_order() == p-1
         g = Mod(z, p)^m
+
+        if A is not None and B is not None:
+            # Also check that g is suitable for use as Z in hash-to-curve.
+            assert not g.is_square()
+            assert g != Mod(-1, p)
+            R.<x> = GF(p)[]
+            curve_rhs = x^3 + Mod(A, p)*x + Mod(B, p)
+            assert (curve_rhs - g).is_irreducible(), factor(curve_rhs - g)
+            assert curve_rhs(B / (g * A)).is_square()
+
         if EXPENSIVE: assert g.multiplicative_order() == 2^n
 
         gtab = [[0]*256 for i in range(4)]
@@ -63,7 +73,7 @@ class SqrtField:
             assert invtab[h] == 1
             invtab[h] = (256-j) % 256
 
-        gtab[3] = gtab[3][:128]
+        gtab[3] = gtab[3][:129]
 
         (self.p, self.n, self.m, self.g, self.gtab, self.invtab, self.base_cost) = (
               p,      n,      m,      g,      gtab,      invtab,      base_cost)
@@ -147,28 +157,37 @@ class SqrtField:
 
         t_ += self.invtab[self.hash(alpha)] << 24  # = t << 1
         if DEBUG: assert 1 == x3 * self.g^t_, (x3, t_)
-        t_ >>= 1
-        assert t_ < 0x80000000, t_
+        t_ = (t_ + 1) >> 1
+        assert t_ <= 0x80000000, t_
         res = uv * self.gtab[0][t_ % 256] * self.gtab[1][(t_ >> 8) % 256] * self.gtab[2][(t_ >> 16) % 256] * self.gtab[3][t_ >> 24]
         cost.muls += 4
 
-        if res^2 != u:
-            res = None
+        issq = (res^2 == u)
         cost.sqrs += 1
         if DEBUG:
-            issq = u.is_square()
-            assert issq == (res is not None)
+            assert issq == u.is_square()
             if EXPENSIVE: assert issq == (x3_order != 2^self.n), (issq, x3_order)
-        return (res, cost)
+            if not issq:
+                assert(res^2 == u * self.g)
+        return (res, issq, cost)
 
 
 p = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
 q = 0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001
 
-# see addchain_sqrt.py for base costs of u^{(m-1)/2}
-F_p = SqrtField(p, 5, Cost(223, 23), hash_xor=0x11BE,   hash_mod=1098)
-F_q = SqrtField(q, 5, Cost(223, 24), hash_xor=0x116A9E, hash_mod=1206)
+E_isop_A = 10949663248450308183708987909873589833737836120165333298109615750520499732811
+E_isoq_A = 17413348858408915339762682399132325137863850198379221683097628341577494210225
+E_isop_B = E_isoq_B = 1265
 
+# see addchain_sqrt.py for base costs of u^{(m-1)/2}
+#F_p = SqrtField(p, 5, Cost(223, 23), hash_xor=0x11BE,   hash_mod=1098, A=E_isop_A, B=E_isop_B)
+#F_q = SqrtField(q, 5, Cost(223, 24), hash_xor=0x116A9E, hash_mod=1206, A=E_isoq_A, B=E_isoq_B)
+
+F_p = SqrtField(p, 13, Cost(223, 23), hash_xor=0x11BE,   hash_mod=1098, A=E_isop_A, B=E_isop_B)
+F_q = SqrtField(q, 14, Cost(223, 24), hash_xor=0x116A9E, hash_mod=1206, A=E_isoq_A, B=E_isoq_B)
+
+print("F_p.g = %r" % (F_p.g,))
+print("F_q.g = %r" % (F_q.g,))
 
 print("p = %r" % (p,))
 
@@ -189,10 +208,10 @@ if SUBGROUP_TEST:
 
 if OP_COUNT:
     total_cost = Cost(0, 0)
-    iters = 1000
+    iters = 50
     for i in range(iters):
         x = GF(p).random_element()
-        (_, cost) = F_p.sarkar_sqrt(x)
+        (_, _, cost) = F_p.sarkar_sqrt(x)
         total_cost += cost
 
     print total_cost.divide(iters)

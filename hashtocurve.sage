@@ -1,6 +1,6 @@
 #!/usr/bin/env sage
 
-# Simplified SWU for a = 0 as described in [WB19] <https://eprint.iacr.org/2019/403> and
+# Simplified SWU for a = 0 as described in [WB2019] <https://eprint.iacr.org/2019/403> and
 # <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.html#name-simplified-swu-for-ab-0-2>.
 
 import sys
@@ -22,6 +22,7 @@ if sys.version_info[0] == 2:
 else:
     as_byte = lambda x: x
 
+load('squareroottab.sage')
 
 class Cost:
     def __init__(self, sqrs=0, muls=0, invs=0):
@@ -51,7 +52,8 @@ class Cost:
     def sqrt(self, x):
         self.sqrs += 247
         self.muls += 35
-        return x.sqrt() if x.is_square() else 0
+        (res, _, _) = F_p.sarkar_sqrt(x)
+        return res
 
     def __add__(self, other):
         return Cost(self.sqrs + other.sqrs, self.muls + other.muls, self.invs + other.invs)
@@ -69,33 +71,66 @@ def find_z_sswu(E):
     ctr = F.gen()
     while True:
         for Z_cand in (F(ctr), F(-ctr)):
-            if Z_cand.is_square():
-                # Criterion 1: Z is non-square in F.
-                continue
-            if Z_cand == F(-1):
-                # Criterion 2: Z != -1 in F.
-                continue
-            if not (g - Z_cand).is_irreducible():
-                # Criterion 3: g(x) - Z is irreducible over F.
-                continue
-            if g(B / (Z_cand * A)).is_square():
-                # Criterion 4: g(B / (Z * A)) is square in F.
+            if is_good_Z(F, g, A, B, Z_cand):
                 return Z_cand
         ctr += 1
 
+def is_good_Z(F, g, A, B, Z):
+    # Criterion 1: Z is non-square in F.
+    if Z.is_square():
+        return False
 
-p        = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
-E_isop_A = 10949663248450308183708987909873589833737836120165333298109615750520499732811
-E_isop   = EllipticCurve(GF(p), [E_isop_A, 1265])
-E_p      = EllipticCurve(GF(p), [0, 5])
-Z_isop   = find_z_sswu(E_isop)
-assert Z_isop == Mod(-13, p)
+    # Criterion 2: Z != -1 in F.
+    if Z == F(-1):
+        return False
+
+    # Criterion 3: g(x) - Z is irreducible over F.
+    if not (g - Z).is_irreducible():
+        return False
+
+    # Criterion 4: g(B / (Z * A)) is square in F.
+    if not g(F(B) / (Z * F(A))).is_square():
+        return False
+
+    return True
+
+
+assert p == 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
+assert q == 0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001
+Fp = GF(p)
+Fq = GF(q)
+
+assert E_isop_A == 10949663248450308183708987909873589833737836120165333298109615750520499732811
+assert E_isoq_A == 17413348858408915339762682399132325137863850198379221683097628341577494210225
+assert E_isop_B == 1265
+assert E_isoq_B == 1265
+E_isop = EllipticCurve(Fp, [E_isop_A, E_isop_B])
+E_isoq = EllipticCurve(Fq, [E_isoq_A, E_isoq_B])
+E_p    = EllipticCurve(Fp, [0, 5])
+E_q    = EllipticCurve(Fq, [0, 5])
 
 k = 128
-L = (len(format(p, 'b')) + k + 7) // 8
-assert L == 48
+Lp = (len(format(p, 'b')) + k + 7) // 8
+Lq = (len(format(q, 'b')) + k + 7) // 8
+assert Lp == 48 and Lq == 48
+L = Lp
 
-CONSTANT_TIME = True
+#Z_isop = find_z_sswu(E_isop)
+#assert Z_isop == Mod(-13, p)
+
+Z_isop = F_p.g
+Z_isoq = F_q.g
+assert Z_isop == 4885772497356318653765850660951536250941631699937167446032529304932157841115
+assert Z_isoq == 15654088896642424639854688424477607401586371156776357768889580294387206490319
+
+Rp.<xp> = Fp[]
+gp = xp^3 + Fp(E_isop_A) * xp + Fp(E_isop_B)
+assert is_good_Z(Fp, gp, E_isop_A, E_isop_B, Z_isop)
+
+Rq.<xq> = Fq[]
+gq = xq^3 + Fq(E_isoq_A) * xq + Fq(E_isoq_B)
+assert is_good_Z(Fq, gq, E_isop_A, E_isoq_B, Z_isoq)
+
 
 def select_z_nz(s, ifz, ifnz):
     # This should be constant-time in a real implementation.
@@ -128,24 +163,45 @@ def map_to_curve_simple_swu(E, Z, us, c):
         gx1 = c.mul(x1, x1_2 + A) + B
 
         # 5. x2 = Z * u^2 * x1
-        tb = c.mul(Z, u2)
-        x2 = c.mul(tb, x1)
+        Zu2 = c.mul(Z, u2)
+        x2 = c.mul(Zu2, x1)
 
-        # 6. gx2 = x2^3 + A * x2 + B
-        #        = x2*(x2^2 + A) + B
-        x2_2 = c.sqr(x2)
-        gx2 = c.mul(x2, x2_2 + A) + B
-
+        # 6. gx2 = x2^3 + A * x2 + B  [optimized out; see below]
         # 7. If is_square(gx1), set x = x1 and y = sqrt(gx1)
         # 8. Else set x = x2 and y = sqrt(gx2)
         y1 = c.sqrt(gx1)
         y1_2 = c.sqr(y1)
-        if CONSTANT_TIME or y1_2 != gx1:
-            y2 = c.sqrt(gx2)
-            x = select_z_nz(y1_2 - gx1, x1, x2)
-            y = select_z_nz(y1_2 - gx1, y1, y2)
-        else:
-            (x, y) = (x1, y1)
+        zero_if_gx1_square = y1_2 - gx1
+
+        # This magic comes from a generalization of [WB2019, section 4.2].
+        #
+        #   here       [WB2019]
+        #   -------    ---------------------------------
+        #   Z          \xi
+        #   u          t
+        #   Z * u^2    \xi * t^2 (called u, confusingly)
+        #   gx1        g(X_0(t))
+        #   gx2        g(X_1(t))
+        #
+        # The Sarkar square root algorithm with input s gives us a square root of
+        # Z * s for free when s is not square, provided we choose Z to be a generator
+        # of the order 2^n multiplicative subgroup (where n = 32 for Pallas and Vesta).
+        # This is compatible with the requirements on Z for simplified SWU.
+        #
+        # We have gx2 = g(Z * u^2 * x1) = Z^3 * u^6 * gx1
+        #                               = (Z * u^3)^2 * (Z * gx1)
+        #
+        # When gx1 is not square, y1 is a square root of Z * gx1, and so Z * u^3 * y1
+        # is a square root of gx2. Note that we don't actually need to compute gx2.
+
+        Zu3 = c.mul(Zu2, u)
+        y2 = c.mul(Zu3, y1)
+        if zero_if_gx1_square != 0:
+            assert y1_2 == Z * gx1, (y1_2, Z, gx1)
+            assert y2^2 == x2^3 + A * x2 + B, (y2, x2, A, B)
+
+        x = select_z_nz(zero_if_gx1_square, x1, x2)
+        y = select_z_nz(zero_if_gx1_square, y1, y2)
 
         # 9. If sgn0(u) != sgn0(y), set y = -y
         y = select_z_nz((int(u) % 2) - (int(y) % 2), y, -y)
@@ -180,7 +236,7 @@ def isop_map_affine(x, y, c):
     return (Nx / Dx, Ny / Dy)
 
 # The same isogeny but in Jacobian coordinates <https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html>,
-# according to "Avoiding inversions" in [WB19, section 4.3].
+# according to "Avoiding inversions" in [WB2019, section 4.3].
 def isop_map_jacobian(x, y, z, c):
     z2 = c.sqr(z)
     z3 = c.mul(z, z2)
@@ -320,5 +376,5 @@ iters = 100
 for i in range(iters):
     (R_affine, cost_affine) = hash_to_curve_affine(pack(">I", i), "blah", uniform=True)
     (R_jacobian, cost_jacobian) = hash_to_curve_jacobian(pack(">I", i), "blah")
-    assert(R_affine == R_jacobian)  # Sage will normalize them
+    assert R_affine == R_jacobian  # Sage will normalize them
     print(R_affine, cost_affine, cost_jacobian)
