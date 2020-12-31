@@ -187,7 +187,7 @@ def map_to_curve_simple_swu(E, Z, h, us, c):
         #                               = (Z * u^3)^2 * (Z/h * h * gx1)
         #                               = (Z * \theta * u^3)^2 * (h * gx1)
         #
-        # When gx1 is not square, y1 is a square root of Z * gx1, and so Z * u^3 * y1
+        # When gx1 is not square, y1 is a square root of h * gx1, and so Z * \theta * u^3 * y1
         # is a square root of gx2. Note that we don't actually need to compute gx2.
 
         y2 = c.mul(theta, c.mul(Zu2, c.mul(u, y1)))
