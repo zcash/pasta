@@ -32,22 +32,12 @@ class Cost:
 
 
 class SqrtField:
-    def __init__(self, p, z, base_cost, hash_xor=None, hash_mod=None, A=None, B=None):
+    def __init__(self, p, z, base_cost, hash_xor=None, hash_mod=None):
         n = 32
         m = p >> n
         assert p == 1 + m * 2^n
         if EXPENSIVE: assert Mod(z, p).multiplicative_order() == p-1
         g = Mod(z, p)^m
-
-        if A is not None and B is not None:
-            # Also check that g is suitable for use as Z in hash-to-curve.
-            assert not g.is_square()
-            assert g != Mod(-1, p)
-            R.<x> = GF(p)[]
-            curve_rhs = x^3 + Mod(A, p)*x + Mod(B, p)
-            assert (curve_rhs - g).is_irreducible(), factor(curve_rhs - g)
-            assert curve_rhs(B / (g * A)).is_square()
-
         if EXPENSIVE: assert g.multiplicative_order() == 2^n
 
         gtab = [[0]*256 for i in range(4)]
@@ -175,19 +165,9 @@ class SqrtField:
 p = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
 q = 0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001
 
-E_isop_A = 10949663248450308183708987909873589833737836120165333298109615750520499732811
-E_isoq_A = 17413348858408915339762682399132325137863850198379221683097628341577494210225
-E_isop_B = E_isoq_B = 1265
-
 # see addchain_sqrt.py for base costs of u^{(m-1)/2}
-#F_p = SqrtField(p, 5, Cost(223, 23), hash_xor=0x11BE,   hash_mod=1098, A=E_isop_A, B=E_isop_B)
-#F_q = SqrtField(q, 5, Cost(223, 24), hash_xor=0x116A9E, hash_mod=1206, A=E_isoq_A, B=E_isoq_B)
-
-F_p = SqrtField(p, 13, Cost(223, 23), hash_xor=0x11BE,   hash_mod=1098, A=E_isop_A, B=E_isop_B)
-F_q = SqrtField(q, 14, Cost(223, 24), hash_xor=0x116A9E, hash_mod=1206, A=E_isoq_A, B=E_isoq_B)
-
-print("F_p.g = %r" % (F_p.g,))
-print("F_q.g = %r" % (F_q.g,))
+F_p = SqrtField(p, 5, Cost(223, 23), hash_xor=0x11BE,   hash_mod=1098)
+F_q = SqrtField(q, 5, Cost(223, 24), hash_xor=0x116A9E, hash_mod=1206)
 
 print("p = %r" % (p,))
 
