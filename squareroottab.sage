@@ -140,15 +140,35 @@ class SqrtField:
     Return (sqrt(N/D),   True,  c), if N/D is square in the field.
            (sqrt(g*N/D), False, c), otherwise.
 
-    This avoids the full c of computing N/D.
+    This avoids the full cost of computing N/D.
     """
     def sarkar_divsqrt(self, N, D, c):
         if DEBUG:
             u = N/D
             if VERBOSE: print("N/D = %r/%r\n    = %r" % (N, D, u))
 
-        # This would actually be done using addition chains for 2^n - 1 and (m-1)/2
-        # (see addchain_sqrt.py).
+        # We need to calculate uv and v, where v = u^((m-1)/2), u = N/D, and p-1 = m * 2^n.
+        # We can rewrite as follows:
+        #
+        #      v = (N/D)^((m-1)/2)
+        #        = N^((m-1)/2) * D^(p-1 - (m-1)/2)    [Fermat's Little Theorem]
+        #        =      "      * D^(m * 2^n - (m-1)/2)
+        #        =      "      * D^((2^(n+1) - 1)*(m-1)/2 + 2^n)
+        #        = (N * D^(2^(n+1) - 1))^((m-1)/2) * D^(2^n)
+        #
+        # Let  w = (N * D^(2^(n+1) - 1))^((m-1)/2) * D^(2^n - 1).
+        # Then v = w * D, and uv = N * v/D = N * w.
+        #
+        # We calculate:
+        #
+        #      s = D^(2^n - 1) using an addition chain
+        #      t = D^(2^(n+1) - 1) = s^2 * D
+        #      w = (N * t)^((m-1)/2) * s using another addition chain
+        #
+        # then u and uv as above. The addition chains are given in addchain_sqrt.py .
+        # The overall cost of this part is similar to a single full-width exponentiation,
+        # regardless of n.
+
         s = D^(2^self.n - 1)
         c.sqrs += 31
         c.muls += 5

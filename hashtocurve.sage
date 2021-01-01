@@ -118,20 +118,24 @@ def map_to_curve_simple_swu(F, E, Z, us, c):
         #   Z          \xi
         #   u          t
         #   Z * u^2    \xi * t^2 (called u, confusingly)
+        #   x1         X_0(t)
+        #   x2         X_1(t)
         #   gx1        g(X_0(t))
         #   gx2        g(X_1(t))
         #
-        #   X0(u)  = N/D = [B*(Z^2 * u^4 + Z * u^2 + 1)] / [-A*(Z^2 * u^4 + Z * u^2]
-        # g(X0(u)) = U/V = [N^3 + A * N * D^2 + B * D^3] / D^3
+        # Using the "here" names:
+        #    x1 = N/D = [B*(Z^2 * u^4 + Z * u^2 + 1)] / [-A*(Z^2 * u^4 + Z * u^2]
+        #   gx1 = U/V = [N^3 + A * N * D^2 + B * D^3] / D^3
 
-        Zu2 = Z * c.sqr(u)  # Z is small
+        # Z and B are small so we don't count multiplication by them as a mul; A is large.
+        Zu2 = Z * c.sqr(u)
         ta = c.sqr(Zu2) + Zu2
-        N = c.mul(B, ta + 1)
+        N = B * (ta + 1)
         D = c.mul(-A, ta)
         N2 = c.sqr(N)
         D2 = c.sqr(D)
         D3 = c.mul(D2, D)
-        U = select_z_nz(ta, BdivZA, c.mul(N2 + A*D2, N) + B*D3)
+        U = select_z_nz(ta, BdivZA, c.mul(N2 + c.mul(A, D2), N) + B*D3)
         V = select_z_nz(ta, 1, D3)
 
         if DEBUG:
