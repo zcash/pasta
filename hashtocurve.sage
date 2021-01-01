@@ -24,42 +24,7 @@ else:
 
 load('squareroottab.sage')
 
-class Cost:
-    def __init__(self, sqrs=0, muls=0, invs=0):
-        self.sqrs = sqrs
-        self.muls = muls
-        self.invs = invs
-
-    def sqr(self, x):
-        self.sqrs += 1
-        return x^2
-
-    def mul(self, x, y):
-        self.muls += 1
-        return x * y
-
-    def div(self, x, y):
-        self.invs += 1
-        self.muls += 1
-        return x / y
-
-    def batch_inv0(self, xs):
-        self.invs += 1
-        self.muls += 3*(len(xs)-1)
-        # This should use Montgomery's trick (with constant-time substitutions to handle zeros).
-        return [0 if x == 0 else x^-1 for x in xs]
-
-    def sqrt(self, x):
-        self.sqrs += 247
-        self.muls += 35
-        (res, _, _) = F_p.sarkar_sqrt(x)
-        return res
-
-    def __add__(self, other):
-        return Cost(self.sqrs + other.sqrs, self.muls + other.muls, self.invs + other.invs)
-
-    def __repr__(self):
-        return "%dS + %dM + %dI" % (self.sqrs, self.muls, self.invs)
+DEBUG = True
 
 # E: a short Weierstrass elliptic curve
 def find_z_sswu(E):
@@ -128,8 +93,9 @@ def select_z_nz(s, ifz, ifnz):
     # This should be constant-time in a real implementation.
     return ifz if (s == 0) else ifnz
 
-def map_to_curve_simple_swu(E, Z, h, us, c):
+def map_to_curve_simple_swu(F, E, Z, us, c):
     # would be precomputed
+    h = F.g
     (0, 0, 0, A, B) = E.a_invariants()
     mBdivA = -B / A
     BdivZA = B / (Z * A)
@@ -137,37 +103,15 @@ def map_to_curve_simple_swu(E, Z, h, us, c):
     assert (Z/h).is_square()
     theta = sqrt(Z/h)
 
-    # 1. tv1 = inv0(Z^2 * u^4 + Z * u^2)
-    #        = inv0((Z^2 * u^2 + Z) * u^2)
-    u2s = [c.sqr(u) for u in us]
-    tas = [c.mul((Z2*u2 + Z), u2) for u2 in u2s]
-    tv1s = c.batch_inv0(tas)
-
     Qs = []
-    for i in range(len(us)):
-        (u, u2, tv1) = (us[i], u2s[i], tv1s[i])
-
+    for u in us:
+        # 1. tv1 = inv0(Z^2 * u^4 + Z * u^2)
         # 2. x1 = (-B / A) * (1 + tv1)
         # 3. If tv1 == 0, set x1 = B / (Z * A)
-        x1 = select_z_nz(tv1, BdivZA, mBdivA * (1 + tv1))
-
         # 4. gx1 = x1^3 + A * x1 + B
-        #        = x1*(x1^2 + A) + B
-        x1_2 = c.sqr(x1)
-        gx1 = c.mul(x1, x1_2 + A) + B
-
-        # 5. x2 = Z * u^2 * x1
-        Zu2 = Z * u2  # Z is small
-        x2 = c.mul(Zu2, x1)
-
-        # 6. gx2 = x2^3 + A * x2 + B  [optimized out; see below]
-        # 7. If is_square(gx1), set x = x1 and y = sqrt(gx1)
-        # 8. Else set x = x2 and y = sqrt(gx2)
-        y1 = c.sqrt(gx1)
-        y1_2 = c.sqr(y1)
-        zero_if_gx1_square = y1_2 - gx1
-
-        # This magic comes from a generalization of [WB2019, section 4.2].
+        #
+        # We use the "Avoiding inversions" optimization in [WB2019, section 4.2]
+        # (not to be confused with section 4.3):
         #
         #   here       [WB2019]
         #   -------    ---------------------------------
@@ -176,6 +120,36 @@ def map_to_curve_simple_swu(E, Z, h, us, c):
         #   Z * u^2    \xi * t^2 (called u, confusingly)
         #   gx1        g(X_0(t))
         #   gx2        g(X_1(t))
+        #
+        #   X0(u)  = N/D = [B*(Z^2 * u^4 + Z * u^2 + 1)] / [-A*(Z^2 * u^4 + Z * u^2]
+        # g(X0(u)) = U/V = [N^3 + A * N * D^2 + B * D^3] / D^3
+
+        Zu2 = Z * c.sqr(u)  # Z is small
+        ta = c.sqr(Zu2) + Zu2
+        N = c.mul(B, ta + 1)
+        D = c.mul(-A, ta)
+        N2 = c.sqr(N)
+        D2 = c.sqr(D)
+        D3 = c.mul(D2, D)
+        U = select_z_nz(ta, BdivZA, c.mul(N2 + A*D2, N) + B*D3)
+        V = select_z_nz(ta, 1, D3)
+
+        if DEBUG:
+            x1 = N/D
+            gx1 = U/V
+            tv1 = (0 if ta == 0 else 1/ta)
+            assert x1 == (BdivZA if tv1 == 0 else mBdivA * (1 + tv1))
+            assert gx1 == x1^3 + A * x1 + B
+
+        # 5. x2 = Z * u^2 * x1
+        x2 = c.mul(Zu2, x1)
+
+        # 6. gx2 = x2^3 + A * x2 + B  [optimized out; see below]
+        # 7. If is_square(gx1), set x = x1 and y = sqrt(gx1)
+        # 8. Else set x = x2 and y = sqrt(gx2)
+        (y1, zero_if_gx1_square) = F.sarkar_divsqrt(U, V, c)
+
+        # This magic also comes from a generalization of [WB2019, section 4.2].
         #
         # The Sarkar square root algorithm with input s gives us a square root of
         # h * s for free when s is not square, provided we choose h to be a generator
@@ -191,8 +165,8 @@ def map_to_curve_simple_swu(E, Z, h, us, c):
         # is a square root of gx2. Note that we don't actually need to compute gx2.
 
         y2 = c.mul(theta, c.mul(Zu2, c.mul(u, y1)))
-        if zero_if_gx1_square != 0:
-            assert y1_2 == h * gx1, (y1_2, Z, gx1)
+        if DEBUG and zero_if_gx1_square != 0:
+            assert y1^2 == h * gx1, (y1_2, Z, gx1)
             assert y2^2 == x2^3 + A * x2 + B, (y2, x2, A, B)
 
         x = select_z_nz(zero_if_gx1_square, x1, x2)
@@ -326,7 +300,7 @@ def hash_to_curve_affine(msg, DST, uniform=True):
     c = Cost()
     us = hash_to_field(msg, DST, 2 if uniform else 1)
     #print("u = ", u)
-    Qs = map_to_curve_simple_swu(E_isop, Z_isop, h_p, us, c)
+    Qs = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us, c)
 
     if uniform:
         # Complete addition using affine coordinates: I + 2M + 2S
@@ -349,7 +323,7 @@ def hash_to_curve_jacobian(msg, DST):
     c = Cost()
     us = hash_to_field(msg, DST, 2)
     #print("u = ", u)
-    Qs = map_to_curve_simple_swu(E_isop, Z_isop, h_p, us, c)
+    Qs = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us, c)
 
     R = Qs[0] + Qs[1]
     #print("R = ", R)

@@ -124,3 +124,17 @@ ss    = sch.sqrmul(sr,  3, s1)
 st    = sch.sqr(ss, 4)
 assert st == s, format(st, 'b')
 print(sch)
+
+
+t = (1<<32) - 1
+
+assert(s == q >> (n+1))
+tch = Chain()
+t1  = 1
+t2  = tch.sqrmul(t1, 1, t1)
+t4  = tch.sqrmul(t2, 2, t2)
+t8  = tch.sqrmul(t4, 4, t4)
+t16 = tch.sqrmul(t8, 8, t8)
+t32 = tch.sqrmul(t16, 16, t16)
+assert t32 == t, format(t32, 'b')
+print(tch)

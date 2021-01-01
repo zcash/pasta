@@ -4,7 +4,6 @@
 # from <https://eprint.iacr.org/2020/1407>, for the Pasta fields.
 
 import sys
-from copy import copy
 
 if sys.version_info[0] == 2:
     range = xrange
@@ -16,16 +15,41 @@ EXPENSIVE = False
 SUBGROUP_TEST = True
 OP_COUNT = True
 
+
 class Cost:
-    def __init__(self, sqrs, muls):
+    def __init__(self, sqrs=0, muls=0, invs=0):
         self.sqrs = sqrs
         self.muls = muls
+        self.invs = invs
+
+    def sqr(self, x):
+        self.sqrs += 1
+        return x^2
+
+    def mul(self, x, y):
+        self.muls += 1
+        return x * y
+
+    def div(self, x, y):
+        self.invs += 1
+        self.muls += 1
+        return x / y
+
+    def batch_inv0(self, xs):
+        self.invs += 1
+        self.muls += 3*(len(xs)-1)
+        # This should use Montgomery's trick (with constant-time substitutions to handle zeros).
+        return [0 if x == 0 else x^-1 for x in xs]
 
     def __repr__(self):
-        return repr((self.sqrs, self.muls))
+        return "%dS + %dM + %dI" % (self.sqrs, self.muls, self.invs)
 
     def __add__(self, other):
-        return Cost(self.sqrs + other.sqrs, self.muls + other.muls)
+        return Cost(self.sqrs + other.sqrs, self.muls + other.muls, self.invs + other.invs)
+
+    def include(self, other):
+        self.sqrs += other.sqrs
+        self.muls += other.muls
 
     def divide(self, divisor):
         return Cost((self.sqrs / divisor).numerical_approx(), (self.muls / divisor).numerical_approx())
@@ -97,17 +121,63 @@ class SqrtField:
         print("best is hash_xor=0x%X, hash_mod=%d" % (hash_xor, hash_mod))
         return (hash_xor, hash_mod)
 
-    def sarkar_sqrt(self, u):
+    """
+    Return (sqrt(u),   True ), if u is square in the field.
+           (sqrt(g*u), False), otherwise.
+    """
+    def sarkar_sqrt(self, u, c):
         if VERBOSE: print("u = %r" % (u,))
 
         # This would actually be done using the addition chain.
         v = u^((self.m-1)/2)
-        cost = copy(self.base_cost)
+        c.include(self.base_cost)
 
-        uv = u * v
+        uv = c.mul(u, v)
+        (res, zero_if_square) = self.sarkar_sqrt_common(u, 1, uv, v, c)
+        return (res, zero_if_square)
+
+    """
+    Return (sqrt(N/D),   True,  c), if N/D is square in the field.
+           (sqrt(g*N/D), False, c), otherwise.
+
+    This avoids the full c of computing N/D.
+    """
+    def sarkar_divsqrt(self, N, D, c):
+        if DEBUG:
+            u = N/D
+            if VERBOSE: print("N/D = %r/%r\n    = %r" % (N, D, u))
+
+        # This would actually be done using addition chains for 2^n - 1 and (m-1)/2
+        # (see addchain_sqrt.py).
+        s = D^(2^self.n - 1)
+        c.sqrs += 31
+        c.muls += 5
+        t = c.mul(c.sqr(s), D)
+        if DEBUG: assert t == D^(2^(self.n+1) - 1)
+        w = c.mul(c.mul(N, t)^((self.m-1)/2), s)
+        c.include(self.base_cost)
+        v = c.mul(w, D)
+        uv = c.mul(N, w)
+
+        if DEBUG:
+            assert v == u^((self.m-1)/2)
+            assert uv == u * v
+
+        (res, zero_if_square) = self.sarkar_sqrt_common(N, D, uv, v, c)
+
+        if DEBUG:
+            (res_ref, zero_if_square_ref) = self.sarkar_sqrt(u, Cost())
+            assert res == res_ref
+            assert (zero_if_square == 0) == (zero_if_square_ref == 0)
+
+        return (res, zero_if_square)
+
+    def sarkar_sqrt_common(self, N, D, uv, v, c):
         x3 = uv * v
-        cost.muls += 2
-        if DEBUG: assert x3 == u^self.m
+        c.muls += 2
+        if DEBUG:
+            u = N/D
+            assert x3 == u^self.m
         if EXPENSIVE:
             x3_order = x3.multiplicative_order()
             if VERBOSE: print("x3_order = %r" % (x3_order,))
@@ -122,44 +192,44 @@ class SqrtField:
             assert x1 == x3^(1<<(self.n-1-15))
             assert x2 == x3^(1<<(self.n-1-23))
 
-        cost.sqrs += 8+8+8
+        c.sqrs += 8+8+8
 
         # i = 0, 1
         t_ = self.invtab[self.hash(x0)]  # = t >> 16
         if DEBUG: assert 1 == x0 * self.g^(t_ << 24), (x0, t_)
         assert t_ < 0x100, t_
         alpha = x1 * self.gtab[2][t_]
-        cost.muls += 1
+        c.muls += 1
 
         # i = 2
         t_ += self.invtab[self.hash(alpha)] << 8  # = t >> 8
         if DEBUG: assert 1 == x1 * self.g^(t_ << 16), (x1, t_)
         assert t_ < 0x10000, t_
         alpha = x2 * self.gtab[1][t_ % 256] * self.gtab[2][t_ >> 8]
-        cost.muls += 2
+        c.muls += 2
 
         # i = 3
         t_ += self.invtab[self.hash(alpha)] << 16  # = t
         if DEBUG: assert 1 == x2 * self.g^(t_ << 8), (x2, t_)
         assert t_ < 0x1000000, t_
         alpha = x3 * self.gtab[0][t_ % 256] * self.gtab[1][(t_ >> 8) % 256] * self.gtab[2][t_ >> 16]
-        cost.muls += 3
+        c.muls += 3
 
         t_ += self.invtab[self.hash(alpha)] << 24  # = t << 1
         if DEBUG: assert 1 == x3 * self.g^t_, (x3, t_)
         t_ = (t_ + 1) >> 1
         assert t_ <= 0x80000000, t_
         res = uv * self.gtab[0][t_ % 256] * self.gtab[1][(t_ >> 8) % 256] * self.gtab[2][(t_ >> 16) % 256] * self.gtab[3][t_ >> 24]
-        cost.muls += 4
+        c.muls += 4
 
-        issq = (res^2 == u)
-        cost.sqrs += 1
+        zero_if_square = c.mul(c.sqr(res), D) - N
         if DEBUG:
-            assert issq == u.is_square()
-            if EXPENSIVE: assert issq == (x3_order != 2^self.n), (issq, x3_order)
-            if not issq:
+            assert (zero_if_square == 0) == u.is_square()
+            if EXPENSIVE: assert (zero_if_square == 0) == (x3_order != 2^self.n), (zero_if_square, x3_order)
+            if zero_if_square != 0:
                 assert(res^2 == u * self.g)
-        return (res, issq, cost)
+
+        return (res, zero_if_square)
 
 
 p = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
@@ -172,26 +242,28 @@ F_q = SqrtField(q, 5, Cost(223, 24), hash_xor=0x116A9E, hash_mod=1206)
 print("p = %r" % (p,))
 
 x = Mod(0x1234567890123456789012345678901234567890123456789012345678901234, p)
-print(F_p.sarkar_sqrt(x))
+print(F_p.sarkar_sqrt(x, Cost()))
+Dx = Mod(0x123456, p)
+print(F_p.sarkar_divsqrt(x*Dx, Dx, Cost()))
 
 x = Mod(0x2345678901234567890123456789012345678901234567890123456789012345, p)
-print(F_p.sarkar_sqrt(x))
+print(F_p.sarkar_sqrt(x, Cost()))
 
 # nonsquare
 x = Mod(0x3456789012345678901234567890123456789012345678901234567890123456, p)
-print(F_p.sarkar_sqrt(x))
+print(F_p.sarkar_sqrt(x, Cost()))
 
 if SUBGROUP_TEST:
     for i in range(33):
         x = F_p.g^(2^i)
-        print(F_p.sarkar_sqrt(x))
+        print(F_p.sarkar_sqrt(x, Cost()))
 
 if OP_COUNT:
-    total_cost = Cost(0, 0)
+    cost = Cost()
     iters = 50
     for i in range(iters):
         x = GF(p).random_element()
-        (_, _, cost) = F_p.sarkar_sqrt(x)
-        total_cost += cost
+        y = GF(p).random_element()
+        (_, _) = F_p.sarkar_divsqrt(x, y, cost)
 
-    print total_cost.divide(iters)
+    print cost.divide(iters)
