@@ -93,7 +93,7 @@ def select_z_nz(s, ifz, ifnz):
     # This should be constant-time in a real implementation.
     return ifz if (s == 0) else ifnz
 
-def map_to_curve_simple_swu(F, E, Z, us, c):
+def map_to_curve_simple_swu(F, E, Z, u, c):
     # would be precomputed
     h = F.g
     (0, 0, 0, A, B) = E.a_invariants()
@@ -103,83 +103,80 @@ def map_to_curve_simple_swu(F, E, Z, us, c):
     assert (Z/h).is_square()
     theta = sqrt(Z/h)
 
-    Qs = []
-    for u in us:
-        # 1. tv1 = inv0(Z^2 * u^4 + Z * u^2)
-        # 2. x1 = (-B / A) * (1 + tv1)
-        # 3. If tv1 == 0, set x1 = B / (Z * A)
-        # 4. gx1 = x1^3 + A * x1 + B
-        #
-        # We use the "Avoiding inversions" optimization in [WB2019, section 4.2]
-        # (not to be confused with section 4.3):
-        #
-        #   here       [WB2019]
-        #   -------    ---------------------------------
-        #   Z          \xi
-        #   u          t
-        #   Z * u^2    \xi * t^2 (called u, confusingly)
-        #   x1         X_0(t)
-        #   x2         X_1(t)
-        #   gx1        g(X_0(t))
-        #   gx2        g(X_1(t))
-        #
-        # Using the "here" names:
-        #    x1 = N/D = [B*(Z^2 * u^4 + Z * u^2 + 1)] / [-A*(Z^2 * u^4 + Z * u^2]
-        #   gx1 = U/V = [N^3 + A * N * D^2 + B * D^3] / D^3
+    # 1. tv1 = inv0(Z^2 * u^4 + Z * u^2)
+    # 2. x1 = (-B / A) * (1 + tv1)
+    # 3. If tv1 == 0, set x1 = B / (Z * A)
+    # 4. gx1 = x1^3 + A * x1 + B
+    #
+    # We use the "Avoiding inversions" optimization in [WB2019, section 4.2]
+    # (not to be confused with section 4.3):
+    #
+    #   here       [WB2019]
+    #   -------    ---------------------------------
+    #   Z          \xi
+    #   u          t
+    #   Z * u^2    \xi * t^2 (called u, confusingly)
+    #   x1         X_0(t)
+    #   x2         X_1(t)
+    #   gx1        g(X_0(t))
+    #   gx2        g(X_1(t))
+    #
+    # Using the "here" names:
+    #    x1 = N/D = [B*(Z^2 * u^4 + Z * u^2 + 1)] / [-A*(Z^2 * u^4 + Z * u^2]
+    #   gx1 = U/V = [N^3 + A * N * D^2 + B * D^3] / D^3
 
-        # Z and B are small so we don't count multiplication by them as a mul; A is large.
-        Zu2 = Z * c.sqr(u)
-        ta = c.sqr(Zu2) + Zu2
-        N = B * (ta + 1)
-        D = c.mul(-A, ta)
-        N2 = c.sqr(N)
-        D2 = c.sqr(D)
-        D3 = c.mul(D2, D)
-        U = select_z_nz(ta, BdivZA, c.mul(N2 + c.mul(A, D2), N) + B*D3)
-        V = select_z_nz(ta, 1, D3)
+    # Z and B are small so we don't count multiplication by them as a mul; A is large.
+    Zu2 = Z * c.sqr(u)
+    ta = c.sqr(Zu2) + Zu2
+    N = B * (ta + 1)
+    D = c.mul(-A, ta)
+    N2 = c.sqr(N)
+    D2 = c.sqr(D)
+    D3 = c.mul(D2, D)
+    U = select_z_nz(ta, BdivZA, c.mul(N2 + c.mul(A, D2), N) + B*D3)
+    V = select_z_nz(ta, 1, D3)
 
-        if DEBUG:
-            x1 = N/D
-            gx1 = U/V
-            tv1 = (0 if ta == 0 else 1/ta)
-            assert x1 == (BdivZA if tv1 == 0 else mBdivA * (1 + tv1))
-            assert gx1 == x1^3 + A * x1 + B
+    if DEBUG:
+        x1 = N/D
+        gx1 = U/V
+        tv1 = (0 if ta == 0 else 1/ta)
+        assert x1 == (BdivZA if tv1 == 0 else mBdivA * (1 + tv1))
+        assert gx1 == x1^3 + A * x1 + B
 
-        # 5. x2 = Z * u^2 * x1
-        x2 = c.mul(Zu2, x1)
+    # 5. x2 = Z * u^2 * x1
+    x2 = c.mul(Zu2, x1)
 
-        # 6. gx2 = x2^3 + A * x2 + B  [optimized out; see below]
-        # 7. If is_square(gx1), set x = x1 and y = sqrt(gx1)
-        # 8. Else set x = x2 and y = sqrt(gx2)
-        (y1, zero_if_gx1_square) = F.sarkar_divsqrt(U, V, c)
+    # 6. gx2 = x2^3 + A * x2 + B  [optimized out; see below]
+    # 7. If is_square(gx1), set x = x1 and y = sqrt(gx1)
+    # 8. Else set x = x2 and y = sqrt(gx2)
+    (y1, zero_if_gx1_square) = F.sarkar_divsqrt(U, V, c)
 
-        # This magic also comes from a generalization of [WB2019, section 4.2].
-        #
-        # The Sarkar square root algorithm with input s gives us a square root of
-        # h * s for free when s is not square, where h is a fixed nonsquare.
-        # We know that Z/h is a square since both Z and h are nonsquares.
-        # Precompute \theta as a square root of Z/h, or choose Z = h so that \theta = 1.
-        #
-        # We have gx2 = g(Z * u^2 * x1) = Z^3 * u^6 * gx1
-        #                               = (Z * u^3)^2 * (Z/h * h * gx1)
-        #                               = (Z * \theta * u^3)^2 * (h * gx1)
-        #
-        # When gx1 is not square, y1 is a square root of h * gx1, and so Z * \theta * u^3 * y1
-        # is a square root of gx2. Note that we don't actually need to compute gx2.
+    # This magic also comes from a generalization of [WB2019, section 4.2].
+    #
+    # The Sarkar square root algorithm with input s gives us a square root of
+    # h * s for free when s is not square, where h is a fixed nonsquare.
+    # We know that Z/h is a square since both Z and h are nonsquares.
+    # Precompute \theta as a square root of Z/h, or choose Z = h so that \theta = 1.
+    #
+    # We have gx2 = g(Z * u^2 * x1) = Z^3 * u^6 * gx1
+    #                               = (Z * u^3)^2 * (Z/h * h * gx1)
+    #                               = (Z * \theta * u^3)^2 * (h * gx1)
+    #
+    # When gx1 is not square, y1 is a square root of h * gx1, and so Z * \theta * u^3 * y1
+    # is a square root of gx2. Note that we don't actually need to compute gx2.
 
-        y2 = c.mul(theta, c.mul(Zu2, c.mul(u, y1)))
-        if DEBUG and zero_if_gx1_square != 0:
-            assert y1^2 == h * gx1, (y1_2, Z, gx1)
-            assert y2^2 == x2^3 + A * x2 + B, (y2, x2, A, B)
+    y2 = c.mul(theta, c.mul(Zu2, c.mul(u, y1)))
+    if DEBUG and zero_if_gx1_square != 0:
+        assert y1^2 == h * gx1, (y1_2, Z, gx1)
+        assert y2^2 == x2^3 + A * x2 + B, (y2, x2, A, B)
 
-        x = select_z_nz(zero_if_gx1_square, x1, x2)
-        y = select_z_nz(zero_if_gx1_square, y1, y2)
+    x = select_z_nz(zero_if_gx1_square, x1, x2)
+    y = select_z_nz(zero_if_gx1_square, y1, y2)
 
-        # 9. If sgn0(u) != sgn0(y), set y = -y
-        y = select_z_nz((int(u) % 2) - (int(y) % 2), y, -y)
-        Qs.append(E((x, y)))
+    # 9. If sgn0(u) != sgn0(y), set y = -y
+    y = select_z_nz((int(u) % 2) - (int(y) % 2), y, -y)
 
-    return Qs
+    return (x, y)
 
 
 # iso_Ep = Isogeny of degree 3 from Elliptic Curve defined by y^2 = x^3 + 10949663248450308183708987909873589833737836120165333298109615750520499732811*x + 1265 over Fp
@@ -303,38 +300,43 @@ def hash_to_curve_affine(msg, DST, uniform=True):
     c = Cost()
     us = hash_to_field(msg, DST, 2 if uniform else 1)
     #print("u = ", u)
-    Qs = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us, c)
+    (Q0x, Q0y) = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[0], c)
 
     if uniform:
+        (Q1x, Q1y) = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[1], c)
+
         # Complete addition using affine coordinates: I + 2M + 2S
         # (S for x1^2; compute numerator and denominator of the division for the correct case;
         # I + M to divide; S + M to compute x and y of the result.)
-        R = Qs[0] + Qs[1]
+
+        # Just use Sage's implementation, since this is mainly for comparison to the Jacobian impl.
+        R = E_isop((Q0x, Q0y)) + E_isop((Q1x, Q1y))
         #print("R = ", R)
         c.invs += 1
         c.sqrs += 2
         c.muls += 2
+        (Rx, Ry) = R.xy()
     else:
-        R = Qs[0]
+        (Rx, Ry) = (Q0x, Q0y)
 
     # no cofactor clearing needed since Pallas and Vesta are prime-order
-    (x, y) = R.xy()
-    P = E_p(isop_map_affine(x, y, c))
+    P = E_p(isop_map_affine(Rx, Ry, c))
     return (P, c)
 
 def hash_to_curve_jacobian(msg, DST):
     c = Cost()
     us = hash_to_field(msg, DST, 2)
     #print("u = ", u)
-    Qs = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us, c)
+    (Q0x, Q0y) = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[0], c)
+    (Q1x, Q1y) = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[1], c)
 
-    R = Qs[0] + Qs[1]
-    #print("R = ", R)
+    if DEBUG:
+        R = E_isop((Q0x, Q0y)) + E_isop((Q1x, Q1y))
+        #print("R = ", R)
 
-    (Q0x, Q0y) = Qs[0].xy()
-    (Q1x, Q1y) = Qs[1].xy()
     (Rx, Ry, Rz) = unified_mmadd_jacobian(E_isop_A, Q0x, Q0y, Q1x, Q1y, c)
-    assert E_isop((Rx / Rz^2, Ry / Rz^3)) == R
+
+    if DEBUG: assert E_isop((Rx / Rz^2, Ry / Rz^3)) == R
 
     # no cofactor clearing needed since Pallas and Vesta are prime-order
     (Px, Py, Pz) = isop_map_jacobian(Rx, Ry, Rz, c)
