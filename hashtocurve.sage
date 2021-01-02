@@ -60,31 +60,83 @@ def is_good_Z(F, g, A, B, Z):
     return True
 
 
-# <https://core.ac.uk/download/pdf/82012348.pdf>
+# Point in Chudnovsky coordinates (Jacobian with Z^2 and Z^3 cached).
 class ChudnovskyPoint:
     def __init__(self, x, y, z, z2, z3):
         (self.x, self.y, self.z, self.z2, self.z3) = (x, y, z, z2, z3)
 
     def add(self, other, E, c):
-        # Addition on y^2 = x^3 + Ax + B with Chudnovsky input and output.
-        # FIXME: should be unified addition.
-        # <https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-1986-cc-2>
+        (0, 0, 0, A, B) = E.a_invariants()
+
+        # Unified addition on y^2 = x^3 + Ax + B with Chudnovsky input and output.
         (X1, Y1, Z1, Z1_2, Z1_3) = ( self.x,  self.y,  self.z,  self.z2,  self.z3)
         (X2, Y2, Z2, Z2_2, Z2_3) = (other.x, other.y, other.z, other.z2, other.z3)
 
+        assert Z1 != 0 and Z2 != 0
+
+        # <https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-2007-bl>
         U1 = c.mul(X1, Z2_2)
         U2 = c.mul(X2, Z1_2)
         S1 = c.mul(Y1, Z2_3)
         S2 = c.mul(Y2, Z1_3)
-        P = U2 - U1
-        R = S2 - S1
-        P_2 = c.sqr(P)
-        P_3 = c.mul(P_2, P)
-        R_2 = c.sqr(R)
-        T = U1 + U2
-        X3 = R_2 - c.mul(T, P_2)
-        Y3 = (c.mul(R, -2*R_2 + c.mul(3*P_2, T)) - c.mul(P_3, S1 + S2))/2
-        Z3 = c.mul(c.mul(Z1, Z2), P)
+        H = U2 - U1
+
+        # now unify doubling <https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#doubling-dbl-2007-bl>:
+        #   XX = c.sqr(X)
+        #   YY = c.sqr(Y)
+        # YYYY = c.sqr(YY)
+        #    S = 2*(c.sqr(X1 + YY) - XX - YYYY)
+        #      = 4*X1*YY
+        #    M = 3*XX + c.mul(A, Z1_2)
+        #   X3 = c.sqr(M) - 2*S
+        #   Y3 = M*(S - X3) - 8*YYYY
+        #   Z3 = c.sqr(Y1 + Z1) - YY - ZZ
+        #
+        # with the rest of addition:
+        #    I = c.sqr(2*H)
+        #    J = c.mul(H, I)
+        #    r = 2*(S2-S1)
+        #    V = c.mul(U1, I)
+        #   X3 = c.sqr(r) - J - 2*V
+        #   Y3 = r*(V - X3) - 2*c.mul(S1, J)
+        #   Z3 = c.mul((c.sqr(Z1 + Z2) - Z1_2 - Z2_2), H)
+
+        r = 2*(S2-S1)
+        X_or_r = select_z_nz(H, X1, r)
+        Y_or_H = select_z_nz(H, Y1, H)
+        XX_or_rr = c.sqr(X_or_r)
+        if DEBUG: assert XX_or_rr == X1^2 if H == 0 else r^2
+
+        YY_or_HH = c.sqr(Y_or_H)
+        if DEBUG: assert YY_or_HH == Y1^2 if H == 0 else H^2
+
+        YYY_or_HHH = c.mul(Y_or_H, YY_or_HH)
+        if DEBUG: assert YYY_or_HHH == Y1^3 if H == 0 else H^3
+
+        YYYY_or_S1HHH = c.mul(select_z_nz(H, Y_or_H, S1), YYY_or_HHH)
+        if DEBUG: assert YYYY_or_S1HHH == Y1^4 if H == 0 else S1*H^3
+
+        S_or_V = 4*c.mul(select_z_nz(H, X1, U1), YY_or_HH)
+        if DEBUG: assert S_or_V == 4*X1*Y1^2 if H == 0 else U1 * (4*H^3)
+
+        J = select_z_nz(H, 0, 4*YYY_or_HHH)
+        # W = { (Z + Y)^2 - Z^2    = 2*Y*Z + Y^2    for doubling
+        #     { (Z1 + Z2)^2 - Z1^2 = 2*Z1*Z2 + Z2^2 for addition
+        W = c.sqr(Z1 + select_z_nz(H, Y1, Z2)) - Z1_2
+        if DEBUG: assert W == 2*Y1*Z1 + Y1^2 if H == 0 else 2*Z1*Z2 + Z2^2
+
+        # Another option would be to multiply Z1_2 by A if that's faster than squaring.
+        Z1_4 = c.sqr(Z1_2)
+        AZ1_4_or_Z3 = c.mul(select_z_nz(H, A, H), select_z_nz(H, Z1_4, W - Z2_2))
+        if DEBUG: assert AZ1_4_or_Z3 == A*Z1^4 if H == 0 else 2*Z1*Z2*H
+
+        M_or_r = select_z_nz(H, 3*XX_or_rr + AZ1_4_or_Z3, r)
+        if DEBUG: assert M_or_r == 3*X1^2 + A*Z1^4 if H == 0 else r
+
+        X3 = c.sqr(M_or_r) - J - 2*S_or_V
+        Y3 = c.mul(M_or_r, S_or_V - X3) - 8*YYYY_or_S1HHH
+        # If U1 + U2 = 0 then the result is the point at infinity.
+        Z3 = select_z_nz(U1 + U2, 0, select_z_nz(H, W - YY_or_HH, AZ1_4_or_Z3))
         Z3_2 = c.sqr(Z3)
         Z3_3 = c.mul(Z3_2, Z3)
         R = ChudnovskyPoint(X3, Y3, Z3, Z3_2, Z3_3)
@@ -315,6 +367,7 @@ def hash_to_curve_jacobian(msg, DST):
     Q1 = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[1], c)
 
     R = Q0.add(Q1, E_isop, c)
+    # Q0.add(Q0, E_isop, Cost())  # check that unified addition works
 
     # no cofactor clearing needed since Pallas and Vesta are prime-order
     (Px, Py, Pz) = isop_map_jacobian(R, c)
