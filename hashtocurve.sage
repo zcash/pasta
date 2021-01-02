@@ -156,8 +156,7 @@ def map_to_curve_simple_swu(F, E, Z, us, c):
         # This magic also comes from a generalization of [WB2019, section 4.2].
         #
         # The Sarkar square root algorithm with input s gives us a square root of
-        # h * s for free when s is not square, provided we choose h to be a generator
-        # of the order 2^n multiplicative subgroup (where n = 32 for Pallas and Vesta).
+        # h * s for free when s is not square, where h is a fixed nonsquare.
         # We know that Z/h is a square since both Z and h are nonsquares.
         # Precompute \theta as a square root of Z/h, or choose Z = h so that \theta = 1.
         #
