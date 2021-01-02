@@ -24,7 +24,7 @@ else:
 
 load('squareroottab.sage')
 
-DEBUG = True
+DEBUG = False
 
 # E: a short Weierstrass elliptic curve
 def find_z_sswu(E):
@@ -58,6 +58,48 @@ def is_good_Z(F, g, A, B, Z):
         return False
 
     return True
+
+
+# <https://core.ac.uk/download/pdf/82012348.pdf>
+class ChudnovskyPoint:
+    def __init__(self, x, y, z, z2, z3):
+        (self.x, self.y, self.z, self.z2, self.z3) = (x, y, z, z2, z3)
+
+    def add(self, other, E, c):
+        # Addition on y^2 = x^3 + Ax + B with Chudnovsky input and output.
+        # FIXME: should be unified addition.
+        # <https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-1986-cc-2>
+        (X1, Y1, Z1, Z1_2, Z1_3) = ( self.x,  self.y,  self.z,  self.z2,  self.z3)
+        (X2, Y2, Z2, Z2_2, Z2_3) = (other.x, other.y, other.z, other.z2, other.z3)
+
+        U1 = c.mul(X1, Z2_2)
+        U2 = c.mul(X2, Z1_2)
+        S1 = c.mul(Y1, Z2_3)
+        S2 = c.mul(Y2, Z1_3)
+        P = U2 - U1
+        R = S2 - S1
+        P_2 = c.sqr(P)
+        P_3 = c.mul(P_2, P)
+        R_2 = c.sqr(R)
+        T = U1 + U2
+        X3 = R_2 - c.mul(T, P_2)
+        Y3 = (c.mul(R, -2*R_2 + c.mul(3*P_2, T)) - c.mul(P_3, S1 + S2))/2
+        Z3 = c.mul(c.mul(Z1, Z2), P)
+        Z3_2 = c.sqr(Z3)
+        Z3_3 = c.mul(Z3_2, Z3)
+        R = ChudnovskyPoint(X3, Y3, Z3, Z3_2, Z3_3)
+
+        if DEBUG: assert R.to_sage(E) == self.to_sage(E) + other.to_sage(E)
+        return R
+
+    def to_sage(self, E):
+        return E((self.x / self.z2, self.y / self.z3))
+
+    def to_jacobian(self):
+        return (self.x, self.y, self.z)
+
+    def __repr__(self):
+        return "%r : %r : %r : %r : %r" % (self.x, self.y, self.z, self.z2, self.z3)
 
 
 assert p == 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
@@ -122,29 +164,29 @@ def map_to_curve_simple_swu(F, E, Z, u, c):
     #   gx2        g(X_1(t))
     #
     # Using the "here" names:
-    #    x1 = N/D = [B*(Z^2 * u^4 + Z * u^2 + 1)] / [-A*(Z^2 * u^4 + Z * u^2]
-    #   gx1 = U/V = [N^3 + A * N * D^2 + B * D^3] / D^3
+    #    x1 = N_x1/D = [B*(Z^2 * u^4 + Z * u^2 + 1)] / [-A*(Z^2 * u^4 + Z * u^2]
+    #   gx1 = U/V    = [N_x1^3 + A * N_x1 * D^2 + B * D^3] / D^3
 
     # Z and B are small so we don't count multiplication by them as a mul; A is large.
     Zu2 = Z * c.sqr(u)
     ta = c.sqr(Zu2) + Zu2
-    N = B * (ta + 1)
+    N_x1 = B * (ta + 1)
     D = c.mul(-A, ta)
-    N2 = c.sqr(N)
+    N2_x1 = c.sqr(N_x1)
     D2 = c.sqr(D)
     D3 = c.mul(D2, D)
-    U = select_z_nz(ta, BdivZA, c.mul(N2 + c.mul(A, D2), N) + B*D3)
+    U = select_z_nz(ta, BdivZA, c.mul(N2_x1 + c.mul(A, D2), N_x1) + B*D3)
     V = select_z_nz(ta, 1, D3)
 
     if DEBUG:
-        x1 = N/D
+        x1 = N_x1/D
         gx1 = U/V
         tv1 = (0 if ta == 0 else 1/ta)
         assert x1 == (BdivZA if tv1 == 0 else mBdivA * (1 + tv1))
         assert gx1 == x1^3 + A * x1 + B
 
     # 5. x2 = Z * u^2 * x1
-    x2 = c.mul(Zu2, x1)
+    N_x2 = c.mul(Zu2, N_x1)  # same D
 
     # 6. gx2 = x2^3 + A * x2 + B  [optimized out; see below]
     # 7. If is_square(gx1), set x = x1 and y = sqrt(gx1)
@@ -170,13 +212,13 @@ def map_to_curve_simple_swu(F, E, Z, u, c):
         assert y1^2 == h * gx1, (y1_2, Z, gx1)
         assert y2^2 == x2^3 + A * x2 + B, (y2, x2, A, B)
 
-    x = select_z_nz(zero_if_gx1_square, x1, x2)
+    N_x = select_z_nz(zero_if_gx1_square, N_x1, N_x2)
     y = select_z_nz(zero_if_gx1_square, y1, y2)
 
     # 9. If sgn0(u) != sgn0(y), set y = -y
     y = select_z_nz((int(u) % 2) - (int(y) % 2), y, -y)
 
-    return (x, y)
+    return ChudnovskyPoint(c.mul(N_x, D), c.mul(y, D3), D, D2, D3)
 
 
 # iso_Ep = Isogeny of degree 3 from Elliptic Curve defined by y^2 = x^3 + 10949663248450308183708987909873589833737836120165333298109615750520499732811*x + 1265 over Fp
@@ -204,11 +246,11 @@ def isop_map_affine(x, y, c):
 
     return (Nx / Dx, Ny / Dy)
 
-# The same isogeny but in Jacobian coordinates <https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html>,
+# The same isogeny but with input in Chudnovsky coordinates (Jacobian plus z^2 and z^3)
+# and output in Jacobian <https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html>,
 # according to "Avoiding inversions" in [WB2019, section 4.3].
-def isop_map_jacobian(x, y, z, c):
-    z2 = c.sqr(z)
-    z3 = c.mul(z, z2)
+def isop_map_jacobian(P, c):
+    (x, y, z, z2, z3) = (P.x, P.y, P.z, P.z2, P.z3)
     z4 = c.sqr(z2)
     z6 = c.sqr(z3)
 
@@ -241,38 +283,6 @@ def isop_map_jacobian(x, y, z, c):
     return (xo, yo, zo)
 
 
-# Unified addition on y^2 = x^3 + Ax + B with affine input and Jacobian output.
-# The inputs must not be the point at infinity; the output may be.
-def unified_mmadd_jacobian(A, Px, Py, Qx, Qy, c):
-    # Addition using Jacobian coordinates for general A
-    # <https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-mmadd-2007-bl>
-    H = Qx - Px
-    I = 4*c.sqr(H)
-    J = c.mul(H, I)
-    r = 2*(Qy - Py)
-    V = c.mul(Px, I)
-
-    # Doubling using Jacobian coordinates for general A
-    # <https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#doubling-mdbl-2007-bl>
-    XX = c.sqr(Px)
-    YY = c.sqr(Py)
-    YYYY = c.sqr(YY)
-    S = 2*(c.sqr(Px + YY) - XX - YYYY)
-    M = 3*XX + A
-
-    # Common part between doubling and addition. J = 0 for doubling.
-    M_or_r = select_z_nz(H, M, r)
-    S_or_V = select_z_nz(H, S, V)
-    Rx = c.sqr(M_or_r) - J - 2*S_or_V
-    Ry = c.mul(M_or_r, S_or_V - Rx) - select_z_nz(H, 8*YYYY, 2*c.mul(Py, J))
-
-    # If Q = -P (i.e. H = 0 and Py + Qy = 0), then the result is the point at infinity, represented by Rz = 0.
-    U = select_z_nz(Py + Qy, 0, Qy)
-    Rz = 2*select_z_nz(H, U, H)
-
-    return (Rx, Ry, Rz)
-
-
 def expand_message_xof(msg, DST, len_in_bytes):
     assert len(DST) < 256
     len_in_bytes = int(len_in_bytes)
@@ -296,61 +306,25 @@ def OS2IP(bs):
     return acc
 
 
-def hash_to_curve_affine(msg, DST, uniform=True):
-    c = Cost()
-    us = hash_to_field(msg, DST, 2 if uniform else 1)
-    #print("u = ", u)
-    (Q0x, Q0y) = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[0], c)
-
-    if uniform:
-        (Q1x, Q1y) = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[1], c)
-
-        # Complete addition using affine coordinates: I + 2M + 2S
-        # (S for x1^2; compute numerator and denominator of the division for the correct case;
-        # I + M to divide; S + M to compute x and y of the result.)
-
-        # Just use Sage's implementation, since this is mainly for comparison to the Jacobian impl.
-        R = E_isop((Q0x, Q0y)) + E_isop((Q1x, Q1y))
-        #print("R = ", R)
-        c.invs += 1
-        c.sqrs += 2
-        c.muls += 2
-        (Rx, Ry) = R.xy()
-    else:
-        (Rx, Ry) = (Q0x, Q0y)
-
-    # no cofactor clearing needed since Pallas and Vesta are prime-order
-    P = E_p(isop_map_affine(Rx, Ry, c))
-    return (P, c)
-
 def hash_to_curve_jacobian(msg, DST):
     c = Cost()
     us = hash_to_field(msg, DST, 2)
     #print("u = ", u)
-    (Q0x, Q0y) = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[0], c)
-    (Q1x, Q1y) = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[1], c)
+    Q0 = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[0], c)
+    Q1 = map_to_curve_simple_swu(F_p, E_isop, Z_isop, us[1], c)
 
-    if DEBUG:
-        R = E_isop((Q0x, Q0y)) + E_isop((Q1x, Q1y))
-        #print("R = ", R)
-
-    (Rx, Ry, Rz) = unified_mmadd_jacobian(E_isop_A, Q0x, Q0y, Q1x, Q1y, c)
-
-    if DEBUG: assert E_isop((Rx / Rz^2, Ry / Rz^3)) == R
+    R = Q0.add(Q1, E_isop, c)
 
     # no cofactor clearing needed since Pallas and Vesta are prime-order
-    (Px, Py, Pz) = isop_map_jacobian(Rx, Ry, Rz, c)
+    (Px, Py, Pz) = isop_map_jacobian(R, c)
     P = E_p((Px / Pz^2, Py / Pz^3))
     return (P, c)
 
 
-print(hash_to_curve_affine("hello", "blah", uniform=True))
 print(hash_to_curve_jacobian("hello", "blah"))
 print("")
 
 iters = 100
 for i in range(iters):
-    (R_affine, cost_affine) = hash_to_curve_affine(pack(">I", i), "blah", uniform=True)
-    (R_jacobian, cost_jacobian) = hash_to_curve_jacobian(pack(">I", i), "blah")
-    assert R_affine == R_jacobian  # Sage will normalize them
-    print(R_affine, cost_affine, cost_jacobian)
+    (R, cost) = hash_to_curve_jacobian(pack(">I", i), "blah")
+    print(R, cost)
