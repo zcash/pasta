@@ -24,7 +24,7 @@ else:
 
 load('squareroottab.sage')
 
-DEBUG = False
+DEBUG = True
 
 # E: a short Weierstrass elliptic curve
 def find_z_sswu(E):
@@ -209,6 +209,7 @@ def map_to_curve_simple_swu(F, E, Z, u, c):
 
     y2 = c.mul(theta, c.mul(Zu2, c.mul(u, y1)))
     if DEBUG and zero_if_gx1_square != 0:
+        x2 = N_x2/D
         assert y1^2 == h * gx1, (y1_2, Z, gx1)
         assert y2^2 == x2^3 + A * x2 + B, (y2, x2, A, B)
 
