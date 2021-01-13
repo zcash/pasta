@@ -9,7 +9,7 @@ from copy import copy
 if sys.version_info[0] == 2:
     range = xrange
 
-DEBUG = False
+DEBUG = True
 VERBOSE = False
 EXPENSIVE = False
 
@@ -225,7 +225,7 @@ if SUBGROUP_TEST:
 
 if OP_COUNT:
     total_cost = Cost(0, 0)
-    iters = 1000
+    iters = 50
     for i in range(iters):
         x = GF(p).random_element()
         (_, cost) = F_p.sarkar_sqrt(x)
