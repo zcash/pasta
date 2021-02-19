@@ -1,6 +1,6 @@
 #!/usr/bin/env sage
 
-# Find the smallest element > 1 of { ω^j : j ∊ [0, 2^32) }, over the Pasta Fp and Fq.
+# Find the smallest element > 1 of { \omega^j : j \in [0, 2^32) }, over the Pasta Fp and Fq.
 #
 # This is a bit clunky at the moment since the threads work independently on subsets
 # of the space, so it requires you to scan the output by eye to get the actual smallest
