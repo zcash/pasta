@@ -12,8 +12,8 @@ DEBUG = True
 VERBOSE = False
 EXPENSIVE = False
 
-SUBGROUP_TEST = True
-OP_COUNT = True
+SUBGROUP_TEST = False
+OP_COUNT = False
 
 
 class Cost:
@@ -137,8 +137,8 @@ class SqrtField:
         return (res, zero_if_square)
 
     """
-    Return (sqrt(N/D),   True,  c), if N/D is square in the field.
-           (sqrt(g*N/D), False, c), otherwise.
+    Return (sqrt(N/D),   True ), if N/D is square in the field.
+           (sqrt(g*N/D), False), otherwise.
 
     This avoids the full cost of computing N/D.
     """
