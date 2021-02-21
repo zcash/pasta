@@ -228,16 +228,15 @@ def map_to_curve_simple_swu(F, E, Z, u, c):
     Zu2 = Z * c.sqr(u)
     ta = c.sqr(Zu2) + Zu2
     N_x1 = B * (ta + 1)
-    D = c.mul(-A, ta)
+    D = c.mul(A, select_z_nz(ta, Z, -ta))
     N2_x1 = c.sqr(N_x1)
     D2 = c.sqr(D)
     D3 = c.mul(D2, D)
-    U = select_z_nz(ta, BdivZA, c.mul(N2_x1 + c.mul(A, D2), N_x1) + B*D3)
-    V = select_z_nz(ta, 1, D3)
+    U = c.mul(N2_x1 + c.mul(A, D2), N_x1) + B*D3
 
     if DEBUG:
         x1 = N_x1/D
-        gx1 = U/V
+        gx1 = U/D3
         tv1 = (0 if ta == 0 else 1/ta)
         assert x1 == (BdivZA if tv1 == 0 else mBdivA * (1 + tv1))
         assert gx1 == x1^3 + A * x1 + B
@@ -248,7 +247,7 @@ def map_to_curve_simple_swu(F, E, Z, u, c):
     # 6. gx2 = x2^3 + A * x2 + B  [optimized out; see below]
     # 7. If is_square(gx1), set x = x1 and y = sqrt(gx1)
     # 8. Else set x = x2 and y = sqrt(gx2)
-    (y1, zero_if_gx1_square) = F.sarkar_divsqrt(U, V, c)
+    (y1, zero_if_gx1_square) = F.sarkar_divsqrt(U, D3, c)
 
     # This magic also comes from a generalization of [WB2019, section 4.2].
     #
