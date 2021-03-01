@@ -51,15 +51,17 @@ def real_worker(which, p, omega, wid, workers):
     print("Worker %d for %s" % (wid, which))
 
     lowest = 1<<240
-    dot = workers*65536
+    dot = 0
 
     x = omega^wid
     m = omega^workers
 
     for i in range(wid, 1<<32, workers):
-        if i % dot == 1:
+        if dot == 65536:
             sys.stdout.write('.')
             sys.stdout.flush()
+            dot = 0
+        dot += 1
 
         if int(x) < lowest:
             lowest = int(x)
