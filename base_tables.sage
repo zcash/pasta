@@ -28,28 +28,43 @@ def hash_to_pallas(domain_prefix, msg):
 def I2LEOSP_32(j):
     return pack("<I", j)
 
+def ceil_div(x, d):
+    return (x + d - 1)//d
+
 TO_UNDERSCORES = maketrans("-", "_")
 
 def to_identifier(s):
     return s.translate(TO_UNDERSCORES).upper()
 
 def gen_bases():
-    b = []
-
-    # ValueCommit
-    b.append( ("ORCHARD_CV_V", hash_to_pallas("z.cash:Orchard_cv", b"v")) )
-    b.append( ("ORCHARD_CV_R", hash_to_pallas("z.cash:Orchard_cv", b"r")) )
-
+    print("Sinsemilla bases:")
     # Sinsemilla Q
     for D in ( b"z.cash:Orchard-NoteCommit-M",
                b"z.cash:Orchard-NoteCommit-r",
                b"z.cash:Orchard-CommitIvk-M",
                b"z.cash:Orchard-CommitIvk-r" ):
-        b.append( ("Q_" + to_identifier(D.split(b':')[-1]), hash_to_pallas("z.cash:SinsemillaQ", D)) )
+        print("Q_" + to_identifier(D.split(b':')[-1]), hash_to_pallas("z.cash:SinsemillaQ", D))
 
     # Sinsemilla S
-    for j in range(1<<10):
-        b.append( ("S_%d" % (j,), hash_to_pallas("z.cash:SinsemillaS", I2LEOSP_32(j))) )
+    for j in range(1 << 10):
+        print("S_%d" % (j,), hash_to_pallas("z.cash:SinsemillaS", I2LEOSP_32(j)))
+
+    print("")
+    print("Other fixed-base tables:")
+    b = []
+
+    # ValueCommit
+    b.append( ("ORCHARD_VALUECOMMIT_V", 64, hash_to_pallas("z.cash:Orchard-cv", b"v")) )
+    b.append( ("ORCHARD_VALUECOMMIT_R", 255, hash_to_pallas("z.cash:Orchard-cv", b"r")) )
+
+    # NoteCommit
+    b.append( ("ORCHARD_NOTECOMMIT_R", 255, hash_to_pallas("z.cash:Orchard-NoteCommit-r", b"")) )
+
+    # Commit^ivk
+    b.append( ("ORCHARD_COMMITIVK_R", 255, hash_to_pallas("z.cash:Orchard-CommitIvk-r", b"")) )
+
+    # K^Orchard
+    b.append( ("ORCHARD_NULLIFIER_K", 255, hash_to_pallas("z.cash:Orchard-Nullifier-K", b"")) )
 
     #print(b)
     return b
@@ -57,7 +72,8 @@ def gen_bases():
 bases = gen_bases()
 
 assert p == 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001
-h = 8
+window_bits = 3
+h = 1 << window_bits
 
 def find_z(ps):
     for z in range(1, 1000*(1<<(2*h))):
@@ -67,9 +83,11 @@ def find_z(ps):
     print("There's a glitch in the matrix.")
     return None
 
-def test():
-    for (name, p) in bases:
-        ps = [(i * p).xy() for i in range(1, h+1)]
-        print(name, ps, find_z(ps))
+def run():
+    for (name, bits, p) in bases:
+        # TODO: work out adjustment for last window
+        for i in range(ceil_div(bits, window_bits)):
+            ps = [((h^i * j) * p).xy() for j in range(1, h+1)]
+            print("%s[%d]" % (name, i), ps, find_z(ps))
 
-test()
+run()
