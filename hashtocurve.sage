@@ -474,7 +474,7 @@ def hash_to_pallas_jacobian(msg, DST):
     # no cofactor clearing needed since Pallas is prime-order
     (Px, Py, Pz) = isop_map_jacobian(R, c)
     P = Ep((Px / Pz^2, Py / Pz^3))
-    return ((Px, Py, Pz), c)
+    return (P, (Px, Py, Pz), c)
 
 def hash_to_vesta_jacobian(msg, DST):
     c = Cost()
@@ -489,7 +489,7 @@ def hash_to_vesta_jacobian(msg, DST):
     # no cofactor clearing needed since Vesta is prime-order
     (Px, Py, Pz) = isoq_map_jacobian(R, c)
     P = Eq((Px / Pz^2, Py / Pz^3))
-    return ((Px, Py, Pz), c)
+    return (P, (Px, Py, Pz), c)
 
 
 print("")
@@ -503,29 +503,29 @@ print("")
 print(map_to_curve_simple_swu(F_q, IsoEq, IsoEqZ, Mod(1, q), Cost()))
 print("")
 
-(x, y, z) = isop_map_jacobian(
+xyz = isop_map_jacobian(
     ChudnovskyPoint(IsoEp,
                     Mod(0x0a881e4d556945aa9c6cfc47bce1aba6593c053e5e2337adc37f111df5c4419e, p),
                     Mod(0x035e5c8a06d5cfb4a62eec46f662cb4e6979f7f2b0acf188f234e04434502b47, p),
                     Mod(0x3af37975b09331256ac4e343558dcbf3575baa717958ef1f11ab791d4fb6f6b4, p)),
     Cost())
-print("Ep { x: 0x%064x, y: 0x%064x, z: 0x%064x }" % (x, y, z))
+print("Ep { x: 0x%064x, y: 0x%064x, z: 0x%064x }" % xyz)
 print("")
 
 # This test vector is chosen so that the first map_to_curve_simple_swu takes the gx1 square
 # "branch" and the second takes the gx1 non-square "branch" (opposite to the Vesta test vector).
-((x, y, z), c) = hash_to_pallas_jacobian(b"world", "z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
-print("Ep { x: 0x%064x, y: 0x%064x, z: 0x%064x }" % (x, y, z))
+(P, xyz, c) = hash_to_pallas_jacobian(b"world", "z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
+print("Ep { x: 0x%064x, y: 0x%064x, z: 0x%064x }" % xyz)
 print("")
 
 # This test vector is chosen so that the first map_to_curve_simple_swu takes the gx1 non-square
 # "branch" and the second takes the gx1 square "branch" (opposite to the Pallas test vector).
-((x, y, z), c) = hash_to_vesta_jacobian(b"hello", "z.cash:test-vesta_XMD:BLAKE2b_SSWU_RO_")
-print("Eq { x: 0x%064x, y: 0x%064x, z: 0x%064x }" % (x, y, z))
+(P, xyz, c) = hash_to_vesta_jacobian(b"hello", "z.cash:test-vesta_XMD:BLAKE2b_SSWU_RO_")
+print("Eq { x: 0x%064x, y: 0x%064x, z: 0x%064x }" % xyz)
 print("")
 
 if OP_COUNT:
     iters = 100
     for i in range(iters):
-        (R, cost) = hash_to_pallas_jacobian(pack(">I", i), "z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
-        print(R, cost)
+        (P, xyz, cost) = hash_to_pallas_jacobian(pack(">I", i), "z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
+        print(xyz, cost)
