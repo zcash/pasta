@@ -40,9 +40,7 @@ def gen_bases():
     print("Sinsemilla bases:")
     # Sinsemilla Q
     for D in ( b"z.cash:Orchard-NoteCommit-M",
-               b"z.cash:Orchard-NoteCommit-r",
-               b"z.cash:Orchard-CommitIvk-M",
-               b"z.cash:Orchard-CommitIvk-r" ):
+               b"z.cash:Orchard-CommitIvk-M" ):
         print("Q_" + to_identifier(D.split(b':')[-1]), hash_to_pallas("z.cash:SinsemillaQ", D))
 
     # Sinsemilla S
