@@ -423,7 +423,7 @@ def hash(hasher, msg):
     return h.digest()
 
 SHA256 = (sha256, 32, 64)
-BLAKE2b = (blake2b, 64, 64)
+BLAKE2b = (blake2b, 64, 128)
 
 def hash_to_field(modulus, message, DST, count):
     outlen = int(count * CHUNKLEN)
