@@ -423,7 +423,7 @@ def hash(hasher, msg):
     return h.digest()
 
 SHA256 = (sha256, 32, 64)
-BLAKE2b = (blake2b, 64, 64)
+BLAKE2b = (blake2b, 64, 128)
 
 def hash_to_field(modulus, message, DST, count):
     outlen = int(count * CHUNKLEN)
@@ -514,7 +514,7 @@ print("")
 
 # This test vector is chosen so that the first map_to_curve_simple_swu takes the gx1 square
 # "branch" and the second takes the gx1 non-square "branch" (opposite to the Vesta test vector).
-(P, xyz, c) = hash_to_pallas_jacobian(b"world", "z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
+(P, xyz, c) = hash_to_pallas_jacobian(b"Trans rights now!", "z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
 print("Ep { x: 0x%064x, y: 0x%064x, z: 0x%064x }" % xyz)
 print("")
 
