@@ -286,4 +286,4 @@ if OP_COUNT:
         y = GF(p).random_element()
         (_, _) = F_p.sarkar_divsqrt(x, y, cost)
 
-    print cost.divide(iters)
+    print(cost.divide(iters))

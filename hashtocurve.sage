@@ -442,13 +442,16 @@ def OS2IP(bs):
     return acc
 
 def expand_message_xmd(H, msg, DST, len_in_bytes):
+    assert isinstance(DST, bytes)
+    assert isinstance(msg, bytes)
+
     (hasher, b_in_bytes, r_in_bytes) = H
     assert len(DST) <= 255
     ell = (len_in_bytes + b_in_bytes - 1)//b_in_bytes
     assert ell <= 255
 
     DST_prime = DST + as_bytes([len(DST)])
-    msg_prime = b"\x00"*r_in_bytes + bytes(msg) + as_bytes([len_in_bytes >> 8, len_in_bytes & 0xFF, 0]) + DST_prime
+    msg_prime = b"\x00"*r_in_bytes + msg + as_bytes([len_in_bytes >> 8, len_in_bytes & 0xFF, 0]) + DST_prime
 
     if VERBOSE: print("b_0:")
     b_0 = hash(hasher, msg_prime)
@@ -514,18 +517,18 @@ print("")
 
 # This test vector is chosen so that the first map_to_curve_simple_swu takes the gx1 square
 # "branch" and the second takes the gx1 non-square "branch" (opposite to the Vesta test vector).
-(P, xyz, c) = hash_to_pallas_jacobian(b"Trans rights now!", "z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
+(P, xyz, c) = hash_to_pallas_jacobian(b"Trans rights now!", b"z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
 print("Ep { x: 0x%064x, y: 0x%064x, z: 0x%064x }" % xyz)
 print("")
 
 # This test vector is chosen so that the first map_to_curve_simple_swu takes the gx1 non-square
 # "branch" and the second takes the gx1 square "branch" (opposite to the Pallas test vector).
-(P, xyz, c) = hash_to_vesta_jacobian(b"hello", "z.cash:test-vesta_XMD:BLAKE2b_SSWU_RO_")
+(P, xyz, c) = hash_to_vesta_jacobian(b"hello", b"z.cash:test-vesta_XMD:BLAKE2b_SSWU_RO_")
 print("Eq { x: 0x%064x, y: 0x%064x, z: 0x%064x }" % xyz)
 print("")
 
 if OP_COUNT:
     iters = 100
     for i in range(iters):
-        (P, xyz, cost) = hash_to_pallas_jacobian(pack(">I", i), "z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
+        (P, xyz, cost) = hash_to_pallas_jacobian(pack(">I", i), b"z.cash:test-pallas_XMD:BLAKE2b_SSWU_RO_")
         print(xyz, cost)
