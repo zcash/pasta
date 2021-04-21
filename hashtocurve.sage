@@ -32,7 +32,14 @@ def find_z_sswu(E):
 
     R.<x> = F[]                       # Polynomial ring over F
     g = x^3 + F(A) * x + F(B)         # y^2 = g(x) = x^3 + A * x + B
-    ctr = F.gen()
+
+    # <https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.html#name-finding-z-for-the-shallue-va> is
+    # ambiguous about whether to start with ctr = F.gen() or ctr = 1. In fact they are specified to be the same,
+    # since F is a prime field.
+    # <https://doc.sagemath.org/html/en/reference/finite_rings/sage/rings/finite_rings/finite_field_prime_modn.html#sage.rings.finite_rings.finite_field_prime_modn.FiniteField_prime_modn.gen>,
+    # The note in the I-D ("NOTE: if init_ctr=1 fails to find Z, try setting it to F.gen()") could only make a
+    # difference for extension fields that are constructed with an explicit modulus.
+    ctr = 1
     while True:
         for Z_cand in (F(ctr), F(-ctr)):
             if is_good_Z(F, g, A, B, Z_cand):
