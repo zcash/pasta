@@ -164,6 +164,9 @@ class ChudnovskyPoint:
     def to_sage(self, E):
         return E((self.x / self.z2, self.y / self.z3))
 
+    def to_affine(self, E):
+        return self.to_sage(E).xy()
+
     def to_jacobian(self):
         return (self.x, self.y, self.z)
 
@@ -503,14 +506,20 @@ def hash_to_vesta_jacobian(msg, DST):
 
 
 print("")
-print(map_to_curve_simple_swu(F_p, IsoEp, IsoEpZ, Mod(0, p), Cost()))
-print("")
-print(map_to_curve_simple_swu(F_p, IsoEp, IsoEpZ, Mod(1, p), Cost()))
+P0 = map_to_curve_simple_swu(F_p, IsoEp, IsoEpZ, Mod(0, p), Cost())
+print("Fp: map_to_curve_simple_swu(0) = %r" % (P0.to_affine(IsoEp),))
+P1 = map_to_curve_simple_swu(F_p, IsoEp, IsoEpZ, Mod(1, p), Cost())
+print("Fp: map_to_curve_simple_swu(1) = %r" % (P1.to_affine(IsoEp),))
+Pa = map_to_curve_simple_swu(F_p, IsoEp, IsoEpZ, Mod(0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef0123, p), Cost())
+print("Fp: map_to_curve_simple_swu(0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef0123) = %r" % (Pa.to_affine(IsoEp),))
 print("")
 
-print(map_to_curve_simple_swu(F_q, IsoEq, IsoEqZ, Mod(0, q), Cost()))
-print("")
-print(map_to_curve_simple_swu(F_q, IsoEq, IsoEqZ, Mod(1, q), Cost()))
+Q0 = map_to_curve_simple_swu(F_q, IsoEq, IsoEqZ, Mod(0, q), Cost())
+print("Fq: map_to_curve_simple_swu(0) = %r" % (Q0.to_affine(IsoEq),))
+Q1 = map_to_curve_simple_swu(F_q, IsoEq, IsoEqZ, Mod(1, q), Cost())
+print("Fq: map_to_curve_simple_swu(1) = %r" % (Q1.to_affine(IsoEq),))
+Qa = map_to_curve_simple_swu(F_q, IsoEq, IsoEqZ, Mod(0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef0123, q), Cost())
+print("Fq: map_to_curve_simple_swu(0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef0123) = %r" % (Qa.to_affine(IsoEq),))
 print("")
 
 xyz = isop_map_jacobian(
