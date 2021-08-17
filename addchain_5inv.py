@@ -79,9 +79,9 @@ assert pr32s == x_p
 print(pc)
 
 x_q = 0b11001100110011001100110011001100110011001100110011001100110011001100110011001100110011001100110011001100110011001100110011001101001110100111101110000011001001101000010100001110111010010010101101011010011111001000101000000011001100110011001100110011001101
-#                                                                                                                                         a       b   c d      e     f  g      h      i   j    k    l  m   n  o     p   q     r                                    s t
-#                                                                                                                                          11001100110011
-#                                                                                                                                               111   1
+#                                                                                                                                         a       b   c d      e     f  g      h      i   j    k    l    m        n o   p     q                                    r s
+#                                                                                                                                          11001100110011                                              11001100110011
+#                                                                                                                                               111   1                                                111      111
 
 qc = Chain()
 q1    = 1
@@ -110,14 +110,13 @@ qr32i = qc.sqrmul(qr32h, 7, q111)
 qr32j = qc.sqrmul(qr32i, 4, q111)
 qr32k = qc.sqrmul(qr32j, 5, q1001)
 qr32l = qc.sqrmul(qr32k, 5, q101)
-qr32m = qc.sqrmul(qr32l, 3, q11)
-qr32n = qc.sqrmul(qr32m, 4, q101)
-qr32o = qc.sqrmul(qr32n, 3, q101)
-qr32p = qc.sqrmul(qr32o, 6, q1111)
-qr32q = qc.sqrmul(qr32p, 4, q1001)
-qr32r = qc.sqrmul(qr32q, 6, q101)
-qr32s = qc.sqrmul(qr32r, 37, qr8)
-qr32t = qc.sqrmul(qr32s, 2, q1)
-assert qr32t == x_q
+qr32m = qc.sqrmul(qr32l, 5, q111)
+qr32n = qc.sqrmul(qr32m, 9, q111)
+qr32o = qc.sqrmul(qr32n, 2, qr4)
+qr32p = qc.sqrmul(qr32o, 4, q1001)
+qr32q = qc.sqrmul(qr32p, 6, q101)
+qr32r = qc.sqrmul(qr32q, 37, qr8)
+qr32s = qc.sqrmul(qr32r, 2, q1)
+assert qr32s == x_q
 print(qc)
 
