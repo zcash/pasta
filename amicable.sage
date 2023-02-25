@@ -22,7 +22,7 @@ DEFAULT_TWOADICITY = 32
 DEFAULT_STRETCH = 0
 
 COEFFICIENT_RANGE = (5,)
-#COEFFICIENT_RANGE = range(1, 100)
+COEFFICIENT_RANGE_ANY = range(1, 1000)
 
 GCD_PRIMES = (5, 7, 11, 13, 17)
 
@@ -100,6 +100,75 @@ def near_powerof2_order(L, twoadicity, wid, processes):
             if p > 1<<(L-1) and p % 6 == 1 and is_pseudoprime(p):
                 yield (p, T, V)
 
+# https://en.wikipedia.org/wiki/Cornacchia%27s_algorithm
+# solves x^2+d*y^2=m
+def cornacchia(d, m):
+    try:
+        r = Mod(-d, m).sqrt(False)
+    except (ValueError):
+        return (None, None)
+    r = int(r)
+    if r > m//2:
+       r = m - r
+    sm = isqrt(m)
+    t = m
+    while r > sm:
+        rn = t % r
+        t = r
+        r = rn
+    s2 = m - r^2
+    if s2 % d != 0:
+        return (None, None)
+    s2 //= d
+    s = isqrt(s2)
+    if s*s == s2:
+        return (r, s)
+    return (None, None)
+
+# searches for primes in the form of c*2^x+1 with c small
+def montgomery_friendly_order(L, twoadicity, wid, processes):
+    for i in range(wid, 2^63, processes):
+        c = 2*i+1
+        n = c.nbits()
+        if n > L - 2*twoadicity:
+            break
+        p = c * 2^(L-n) + 1
+
+        if p % 6 != 1:
+            continue
+
+        if not is_pseudoprime(p):
+            continue
+
+        (T, V) = cornacchia(3, 4*p)
+
+        if T is None:
+            continue
+
+        yield (p, T, V)
+
+# searches for primes in the form of 2^L-c with c small
+def crandall_order(L, twoadicity, wid, processes):
+    for i in range(wid, 2^63, processes):
+        c = i+1
+        n = c.nbits()
+        if n > L - twoadicity:
+            break
+        p = 2^L - c * (1<<twoadicity) + 1
+
+        if p % 6 != 1:
+            continue
+
+        if not is_pseudoprime(p):
+            continue
+
+        (T, V) = cornacchia(3, 4*p)
+
+        if T is None:
+            continue
+
+        yield (p, T, V)
+
 def symmetric_range(n, base=0, step=1):
     for i in range(base, n, step):
         yield -i
@@ -107,7 +176,7 @@ def symmetric_range(n, base=0, step=1):
 
 SWAP_SIGNS = maketrans("+-", "-+")
 
-def find_nice_curves(strategy, L, twoadicity, stretch, requireisos, sortpq, twistsec, wid, processes):
+def find_nice_curves(strategy, L, twoadicity, stretch, requireisos, sortpq, twistsec, anyeqn, wid, processes):
     for (p, T, V) in strategy(L, max(0, twoadicity-stretch), wid, processes):
         if p % (1<<twoadicity) != 1:
             continue
@@ -116,7 +185,11 @@ def find_nice_curves(strategy, L, twoadicity, stretch, requireisos, sortpq, twis
         sys.stdout.flush()
 
         for (q, qdesc) in ((p + 1 - T,          "p + 1 - T"),
-                           (p + 1 + (T-3*V)//2, "p + 1 + (T-3*V)/2")):
+                           (p + 1 + T,          "p + 1 + T"),
+                           (p + 1 + (T-3*V)//2, "p + 1 + (T-3*V)/2"),
+                           (p + 1 + (T+3*V)//2, "p + 1 + (T+3*V)/2"),
+                           (p + 1 - (T-3*V)//2, "p + 1 - (T-3*V)/2"),
+                           (p + 1 - (T+3*V)//2, "p + 1 - (T+3*V)/2")):
             if strategy == near_powerof2_order and REQUIRE_HALFZERO and q>>(L//2) != 1<<(L - 1 - L//2):
                 continue
 
@@ -125,18 +198,38 @@ def find_nice_curves(strategy, L, twoadicity, stretch, requireisos, sortpq, twis
                     (p, q) = (q, p)
                     qdesc = qdesc.translate(SWAP_SIGNS)
 
-                (Ep, bp) = find_curve(p, q)
-                if bp == None: continue
-                (Eq, bq) = find_curve(q, p, (bp,))
-                if bq == None: continue
-
                 sys.stdout.write('*')
                 sys.stdout.flush()
 
-                primp = (Mod(bp, p).multiplicative_order() == p-1)
-                if REQUIRE_PRIMITIVE and not primp: continue
-                primq = (Mod(bq, q).multiplicative_order() == q-1)
-                if REQUIRE_PRIMITIVE and not primq: continue
+                if anyeqn:
+                    bp = None
+                    for b in COEFFICIENT_RANGE_ANY:
+                        Ep = EllipticCurve(GF(p), [0, b])
+                        if Ep.count_points() != q:
+                            continue
+                        Eq = EllipticCurve(GF(q), [0, b])
+                        if Eq.count_points() != p:
+                            continue
+
+                        primp = (Mod(b, p).multiplicative_order() == p-1)
+                        if REQUIRE_PRIMITIVE and not primp: continue
+                        primq = (Mod(b, q).multiplicative_order() == q-1)
+                        if REQUIRE_PRIMITIVE and not primq: continue
+
+                        bp = bq = b
+                        break
+
+                    if bp == None: continue
+                else:
+                    (Ep, bp) = find_curve(p, q)
+                    if bp == None: continue
+                    (Eq, bq) = find_curve(q, p, (bp,))
+                    if bq == None: continue
+
+                    primp = (Mod(bp, p).multiplicative_order() == p-1)
+                    if REQUIRE_PRIMITIVE and not primp: continue
+                    primq = (Mod(bq, q).multiplicative_order() == q-1)
+                    if REQUIRE_PRIMITIVE and not primq: continue
 
                 (twsecp, twembedp) = twist_security(p, q)
                 if twsecp < twistsec: continue
@@ -236,30 +329,41 @@ def format_weight(x, detail=True):
     else:
         detailstr = " (bitlength %d)" % (len(X),)
 
-    return "%s0b%s%s" % ("-" if x < 0 else "", X, detailstr)
+    return "%s%s%s" % ("-" if x < 0 else "", hex(abs(x)), detailstr)
 
 
 def main():
     args = sys.argv[1:]
-    strategy = near_powerof2_order if "--nearpowerof2" in args else low_hamming_order
+    if "--nearpowerof2" in args:
+        strategy = near_powerof2_order
+    elif "--montgomery" in args:
+        strategy = montgomery_friendly_order
+    elif "--crandall" in args:
+        strategy = crandall_order
+    else:
+        strategy = low_hamming_order
     processes = 1 if "--sequential" in args else cpu_count()
     if processes >= 6:
         processes -= 2
     requireisos = "--requireisos" in args
     sortpq = "--sortpq" in args
     twistsec = 0 if "--ignoretwist" in args else DEFAULT_TWIST_SECURITY
+    anyeqn = "--anyeqn" in args
     args = [arg for arg in args if not arg.startswith("--")]
 
     if len(args) < 1:
         print("""
-Usage: sage amicable.sage [--sequential] [--requireisos] [--sortpq] [--ignoretwist] [--nearpowerof2] <min-bitlength> [<min-2adicity> [<stretch]]
+Usage: sage amicable.sage [--sequential] [--requireisos] [--sortpq] [--ignoretwist] [--anyeqn] [--nearpowerof2] [--montgomery] [--crandall] <min-bitlength> [<min-2adicity> [<stretch]]
 
 Arguments:
   --sequential     Use only one thread, avoiding non-determinism in the output order.
   --requireisos    Require isogenies useful for a "simplified SWU" hash to curve.
   --sortpq         Sort p smaller than q.
   --ignoretwist    Ignore twist security.
+  --anyeqn         Allow equations other than y^2 = x^3 + 5.
   --nearpowerof2   Search for primes near a power of 2, rather than with low Hamming weight.
+  --montgomery     Search for primes p = c*2^x+1 with c small.
+  --crandall       Search for primes p = 2^x-c with c small.
   <min-bitlength>  Both primes should have this minimum bit length.
   <min-2adicity>   Both primes should have this minimum 2-adicity.
   <stretch>        Find more candidates, by filtering from 2-adicity smaller by this many bits.
@@ -275,10 +379,10 @@ Arguments:
 
     try:
         for wid in range(processes):
-            pool.apply_async(worker, (strategy, L, twoadicity, stretch, requireisos, sortpq, twistsec, wid, processes))
+            pool.apply_async(worker, (strategy, L, twoadicity, stretch, requireisos, sortpq, twistsec, anyeqn, wid, processes))
 
-        while True:
-            sleep(1000)
+        pool.close()
+        pool.join()
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
