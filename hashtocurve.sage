@@ -6,7 +6,7 @@
 import sys
 from math import ceil, log
 from struct import pack
-from pyblake2 import blake2b
+from Cryptodome.Hash import BLAKE2b as blake2b
 from hashlib import sha256
 
 if sys.version_info[0] == 2:
@@ -27,7 +27,7 @@ OP_COUNT = False
 
 # E: a short Weierstrass elliptic curve
 def find_z_sswu(E):
-    (0, 0, 0, A, B) = E.a_invariants()
+    (_, _, _, A, B) = E.a_invariants()
     F = E.base_field()
 
     R.<x> = F[]                       # Polynomial ring over F
@@ -75,7 +75,7 @@ class ChudnovskyPoint:
             z3 = z^3
 
         if DEBUG:
-            (0, 0, 0, A, B) = E.a_invariants()
+            (_, _, _, A, B) = E.a_invariants()
             assert z2 == z^2
             assert z3 == z^3
             assert y^2 == x^3 + A*x*z^4 + B*z^6
@@ -83,7 +83,7 @@ class ChudnovskyPoint:
         (self.x, self.y, self.z, self.z2, self.z3) = (x, y, z, z2, z3)
 
     def add(self, other, E, c):
-        (0, 0, 0, A, B) = E.a_invariants()
+        (_, _, _, A, B) = E.a_invariants()
 
         # Unified addition on y^2 = x^3 + Ax + B with Chudnovsky input and output.
         (X1, Y1, Z1, Z1_2, Z1_3) = ( self.x,  self.y,  self.z,  self.z2,  self.z3)
@@ -209,7 +209,7 @@ def map_to_curve_simple_swu(F, E, Z, u, c):
 
     # would be precomputed
     h = F.g
-    (0, 0, 0, A, B) = E.a_invariants()
+    (_, _, _, A, B) = E.a_invariants()
     mBdivA = -B / A
     BdivZA = B / (Z * A)
     Z2 = Z^2
@@ -428,7 +428,7 @@ def hex_bytes(bs):
 
 def hash(hasher, msg):
     if VERBOSE: print(hex_bytes(msg))
-    h = hasher()
+    h = hasher.new(digest_bits=512)
     h.update(msg)
     return h.digest()
 
