@@ -477,7 +477,7 @@ def expand_message_xmd(H, msg, DST, len_in_bytes):
 def hash_to_pallas_jacobian(msg, DST):
     c = Cost()
     us = hash_to_field(p, msg, DST, 2)
-    if VERBOSE: print("us = [0x%064x, 0x064%x]" % (us[0], us[1]))
+    if VERBOSE: print("us = [0x%064x, 0x%064x]" % (us[0], us[1]))
     Q0 = map_to_curve_simple_swu(F_p, IsoEp, IsoEpZ, us[0], c)
     Q1 = map_to_curve_simple_swu(F_p, IsoEp, IsoEpZ, us[1], c)
 
@@ -492,7 +492,7 @@ def hash_to_pallas_jacobian(msg, DST):
 def hash_to_vesta_jacobian(msg, DST):
     c = Cost()
     us = hash_to_field(q, msg, DST, 2)
-    if VERBOSE: print("us = [0x%064x, 0x064%x]" % (us[0], us[1]))
+    if VERBOSE: print("us = [0x%064x, 0x%064x]" % (us[0], us[1]))
     Q0 = map_to_curve_simple_swu(F_q, IsoEq, IsoEqZ, us[0], c)
     Q1 = map_to_curve_simple_swu(F_q, IsoEq, IsoEqZ, us[1], c)
 
